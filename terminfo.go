@@ -244,12 +244,9 @@ func Open(dir, name string) (*Terminfo, error) {
 	return ti, nil
 }
 
+// Sprintf formats the string cap s, interpolating parameters p.
 func (ti *Terminfo) Sprintf(s StringCapType, p ...interface{}) string {
 	return Sprintf(ti.Strings[int(s)], p...)
-}
-
-func (ti *Terminfo) CapSprintf(name string, p ...interface{}) string {
-	return ""
 }
 
 // Goto returns a string suitable for addressing the cursor at the given

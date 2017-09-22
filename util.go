@@ -132,7 +132,7 @@ func (d *decoder) readBools(n, cap int) ([]bool, map[int]bool, error) {
 	bools, boolsM := make([]bool, cap), make(map[int]bool)
 	for i, b := range buf {
 		bools[i] = b == 1
-		if b < 0 {
+		if int8(b) < 0 {
 			log.Printf(">>> %d (%s): %d", i, boolCapNames[i], b)
 		}
 	}
@@ -181,7 +181,7 @@ func (d *decoder) readStrings(n, len, cap int) ([]string, map[int]bool, error) {
 	d.align()
 
 	// process string data table
-	s, m := make([]string, cap), make(map[int]bool, 0)
+	s, m := make([]string, cap), make(map[int]bool)
 	for i := 0; i < n; i++ {
 		start := int(decodeInt16(buf[i*2 : i*2+2]))
 		if start == -2 {
