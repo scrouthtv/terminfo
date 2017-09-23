@@ -90,7 +90,8 @@ type Terminfo struct {
 func Decode(buf []byte) (*Terminfo, error) {
 	var err error
 
-	if len(buf) >= 4096 {
+	// check max file length
+	if len(buf) >= maxFileLength {
 		return nil, ErrInvalidFileSize
 	}
 
@@ -120,32 +121,32 @@ func Decode(buf []byte) (*Terminfo, error) {
 		return nil, ErrUnexpectedFileEnd
 	}
 
-	// read term names
+	// read names
 	names, err := d.readBytes(h[fieldNameSize])
 	if err != nil {
 		return nil, err
 	}
 
 	// check name is terminated properly
-	i := findNull(names)
+	i := findNull(names, 0)
 	if i == -1 {
 		return nil, ErrInvalidNames
 	}
 	names = names[:i]
 
-	// read bool capabilities
+	// read bool caps
 	bools, boolsM, err := d.readBools(h[fieldBoolCount])
 	if err != nil {
 		return nil, err
 	}
 
-	// read num capabilities
+	// read num caps
 	nums, numsM, err := d.readNums(h[fieldNumCount])
 	if err != nil {
 		return nil, err
 	}
 
-	// read string capabilities
+	// read string caps
 	strs, strsM, err := d.readStrings(h[fieldStringCount], h[fieldTableSize])
 	if err != nil {
 		return nil, err
@@ -161,7 +162,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 		StringsM: strsM,
 	}
 
-	// at the end of file, so no extended capabilities
+	// at the end of file, so no extended caps
 	if d.pos >= d.len {
 		return ti, nil
 	}
@@ -177,24 +178,24 @@ func Decode(buf []byte) (*Terminfo, error) {
 		return nil, ErrInvalidExtendedHeader
 	}
 
-	// check extended lengths in extended header
+	// check extended cap lengths
 	if d.len-d.pos != extCapLength(eh) {
 		return nil, ErrInvalidExtendedHeader
 	}
 
-	// read extended bools
+	// read extended bool caps
 	ti.ExtBools, _, err = d.readBools(eh[fieldExtBoolCount])
 	if err != nil {
 		return nil, err
 	}
 
-	// read extended nums
+	// read extended num caps
 	ti.ExtNums, _, err = d.readNums(eh[fieldExtNumCount])
 	if err != nil {
 		return nil, err
 	}
 
-	// read string indexes
+	// read extended string data table indexes
 	extIndexes, err := d.readInts(eh[fieldExtOffsetCount], 16)
 	if err != nil {
 		return nil, err
@@ -206,18 +207,18 @@ func Decode(buf []byte) (*Terminfo, error) {
 		return nil, err
 	}
 
-	// check length
+	// precautionary check that exactly at end of file
 	if d.pos != d.len {
 		return nil, ErrUnexpectedFileEnd
 	}
 
 	var last int
-	// read extended strings
+	// read extended string caps
 	ti.ExtStrings, last, err = readStrings(extIndexes, extData, eh[fieldExtStringCount])
 	if err != nil {
 		return nil, err
 	}
-	extIndexes, extData = extIndexes[eh[fieldExtStringCount]:], extData[last+1:]
+	extIndexes, extData = extIndexes[eh[fieldExtStringCount]:], extData[last:]
 
 	// read extended bool names
 	ti.ExtBoolNames, _, err = readStrings(extIndexes, extData, eh[fieldExtBoolCount])
@@ -238,7 +239,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	extIndexes = extIndexes[eh[fieldExtNumCount]:]
+	//extIndexes = extIndexes[eh[fieldExtStringCount]:]
 
 	return ti, nil
 }

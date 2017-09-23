@@ -5,8 +5,13 @@ import (
 	"unicode"
 )
 
-// magic is the file magic for terminfo files.
-const magic = 0432
+const (
+	// maxFileLength is the max file length.
+	maxFileLength = 4096
+
+	// magic is the file magic for terminfo files.
+	magic = 0432
+)
 
 // header fields.
 const (
@@ -27,7 +32,7 @@ const (
 	fieldExtTableSize
 )
 
-// hasInvalidCaps returns determines if the capabilities in h are invalid.
+// hasInvalidCaps determines if the capabilities in h are invalid.
 func hasInvalidCaps(h []int) bool {
 	return h[fieldBoolCount] > CapCountBool ||
 		h[fieldNumCount] > CapCountNum ||
@@ -61,8 +66,8 @@ func extCapLength(h []int) int {
 }
 
 // findNull finds the position of null in buf.
-func findNull(buf []byte) int {
-	for i := 0; i < len(buf); i++ {
+func findNull(buf []byte, i int) int {
+	for ; i < len(buf); i++ {
 		if buf[i] == 0 {
 			return i
 		}
@@ -175,8 +180,8 @@ func (d *decoder) readStringTable(n, sz int) ([][]byte, []int, error) {
 		if start == -2 {
 			m = append(m, i)
 		} else if start >= 0 {
-			if end := findNull(data[start:]); end != -1 {
-				s[i] = data[start : start+end]
+			if end := findNull(data, start); end != -1 {
+				s[i] = data[start:end]
 			} else {
 				return nil, nil, ErrInvalidStringTable
 			}
@@ -215,9 +220,8 @@ func readStrings(idx []int, data []byte, n int) (map[int][]byte, int, error) {
 		if start < 0 {
 			continue
 		}
-		if end := findNull(data[start:]); end != -1 {
-			m[i] = data[start : start+end]
-			last = start + end
+		if end := findNull(data, start); end != -1 {
+			m[i], last = data[start:end], end+1
 		} else {
 			return nil, 0, ErrInvalidStringTable
 		}
@@ -237,6 +241,7 @@ func peek(bs []byte, pos, len int) byte {
 func Escape(s string) string {
 	bs := []byte(s)
 	l := len(bs)
+
 	var z string
 	var p byte
 	var afterEsc bool

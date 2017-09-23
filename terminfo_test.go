@@ -84,9 +84,14 @@ func TestValues(t *testing.T) {
 		}
 	}
 
+	var termCount int
 	var boolCount, numCount, stringCount int
+	var extBoolCount, extNumCount, extStringCount int
 
 	for term := range terms {
+		/*if term != "kterm" {
+			continue
+		}*/
 		if term == "xterm-old" {
 			continue
 		}
@@ -119,6 +124,30 @@ func TestValues(t *testing.T) {
 			boolCount++
 		}
 
+		// check extended bool caps
+		if len(ic.extBoolCaps) != len(ti.ExtBools) {
+			t.Errorf("term %s should have same number of extended bools (%d, %d)", term, len(ic.extBoolCaps), len(ti.ExtBools))
+		}
+		for i, v := range ic.extBoolCaps {
+			z, ok := ti.ExtBools[i]
+			if !ok {
+				t.Errorf("term %s should have extended bool %d", term, i)
+			}
+			if v.(bool) != z {
+				t.Errorf("term %s extended bool cap %d (%s) should be %t", term, i, ic.extBoolNames[i], v)
+			}
+
+			n, ok := ti.ExtBoolNames[i]
+			if !ok {
+				t.Errorf("term %s missing extended bool %d name", term, i)
+			}
+			if string(n) != ic.extBoolNames[i] {
+				t.Errorf("term %s extended bool %d name should be '%s', got: '%s'", term, i, ic.extBoolNames[i], string(n))
+			}
+
+			extBoolCount++
+		}
+
 		// check num caps
 		for i, v := range ic.numCaps {
 			if v == nil {
@@ -131,7 +160,31 @@ func TestValues(t *testing.T) {
 			numCount++
 		}
 
-		// check num caps
+		// check extended num caps
+		if len(ic.extNumCaps) != len(ti.ExtNums) {
+			t.Errorf("term %s should have same number of extended nums (%d, %d)", term, len(ic.extNumCaps), len(ti.ExtNums))
+		}
+		for i, v := range ic.extNumCaps {
+			z, ok := ti.ExtNums[i]
+			if !ok {
+				t.Errorf("term %s should have extended num %d", term, i)
+			}
+			if v.(int) != z {
+				t.Errorf("term %s extended num cap %d (%s) should be %t", term, i, ic.extNumNames[i], v)
+			}
+
+			n, ok := ti.ExtNumNames[i]
+			if !ok {
+				t.Errorf("term %s missing extended num %d name", term, i)
+			}
+			if string(n) != ic.extNumNames[i] {
+				t.Errorf("term %s extended num %d name should be '%s', got: '%s'", term, i, ic.extNumNames[i], string(n))
+			}
+
+			extNumCount++
+		}
+
+		// check string caps
 		for i, v := range ic.stringCaps {
 			if i == AcsChars && badTermAcscMap[term] {
 				continue
@@ -148,14 +201,55 @@ func TestValues(t *testing.T) {
 			}
 			stringCount++
 		}
+
+		// check extended string caps
+		if len(ic.extStringCaps) != len(ti.ExtStrings) {
+			t.Errorf("term %s should have same number of extended strings (%d, %d)", term, len(ic.extStringCaps), len(ti.ExtStrings))
+		}
+		for i, v := range ic.extStringCaps {
+			z, ok := ti.ExtStrings[i]
+			if !ok {
+				t.Errorf("term %s should have extended string %d", term, i)
+			}
+			if v.(string) != string(z) {
+				t.Errorf("term %s extended string cap %d (%s) should be %t", term, i, ic.extStringNames[i], v)
+			}
+
+			n, ok := ti.ExtStringNames[i]
+			if !ok {
+				t.Errorf("term %s missing extended string %d name", term, i)
+			}
+			if string(n) != ic.extStringNames[i] {
+				t.Errorf("term %s extended string %d name should be '%s', got: '%s'", term, i, ic.extStringNames[i], string(n))
+			}
+
+			extStringCount++
+		}
+
+		termCount++
 	}
 
-	t.Logf("tested: %d terms, %d bools, %d nums, %d strings", len(terms), boolCount, numCount, stringCount)
+	t.Logf("tested: %d terms", termCount)
+	t.Logf("%d bools, %d nums, %d strings", boolCount, numCount, stringCount)
+	t.Logf("%d extended bools, %d extended nums, %d extended strings", extBoolCount, extNumCount, extStringCount)
 }
 
 var (
 	shortCapNameMap map[string]int
 )
+
+type infocmp struct {
+	names          []string
+	boolCaps       map[int]interface{}
+	numCaps        map[int]interface{}
+	stringCaps     map[int]interface{}
+	extBoolCaps    map[int]interface{}
+	extNumCaps     map[int]interface{}
+	extStringCaps  map[int]interface{}
+	extBoolNames   map[int]string
+	extNumNames    map[int]string
+	extStringNames map[int]string
+}
 
 func init() {
 	shortCapNameMap = make(map[string]int)
@@ -167,82 +261,11 @@ func init() {
 }
 
 var (
-	boolSectRE   = regexp.MustCompile(`_bool_data\[\]\s*=\s*{`)
-	numSectRE    = regexp.MustCompile(`_number_data\[\]\s*=\s*{`)
-	stringSectRE = regexp.MustCompile(`_string_data\[\]\s*=\s*{`)
-	endSectRE    = regexp.MustCompile(`(?m)^};$`)
-
-	capValuesRE = regexp.MustCompile(`(?m)^\s+/\*\s+[0-9]+:\s+([^\s]+)\s+\*/\s+(.*),$`)
-	numRE       = regexp.MustCompile(`^[0-9]+$`)
-	absCanRE    = regexp.MustCompile(`^(ABSENT|CANCELLED)_(BOOLEAN|NUMERIC|STRING)$`)
-)
-
-type infocmp struct {
-	names      []string
-	boolCaps   map[int]interface{}
-	numCaps    map[int]interface{}
-	stringCaps map[int]interface{}
-}
-
-func processSect(buf []byte, stringCaps map[string]string, ic *infocmp, zz map[int]interface{}, sectRE *regexp.Regexp) error {
-	var err error
-	start := sectRE.FindIndex(buf)
-	if start == nil || len(start) != 2 {
-		return fmt.Errorf("could not find sect (%s)", sectRE)
-	}
-	end := endSectRE.FindIndex(buf[start[1]:])
-	if end == nil || len(end) != 2 {
-		return fmt.Errorf("could not find end of section (%s)", sectRE)
-	}
-
-	buf = buf[start[1] : start[1]+end[0]]
-
-	// load caps
-	m := capValuesRE.FindAllStringSubmatch(string(buf), -1)
-	for i, s := range m {
-		// get long cap name
-		var k int
-		var ok bool
-		k, ok = shortCapNameMap[s[1]]
-		if !ok {
-			return fmt.Errorf("unknown  cap name '%s'", s[1])
-		}
-
-		// get cap value
-		var v interface{}
-		switch {
-		case s[2] == "TRUE" || s[2] == "FALSE":
-			v = s[2] == "TRUE"
-
-		case numRE.MatchString(s[2]):
-			var j int64
-			j, err = strconv.ParseInt(s[2], 10, 16)
-			if err != nil {
-				return fmt.Errorf("line %d could not parse: %v", i, err)
-			}
-			v = int(j)
-
-		case absCanRE.MatchString(s[2]):
-
-		default:
-			v, ok = stringCaps[s[2]]
-			if !ok {
-				return fmt.Errorf("cap '%s' not defined in cap table", s[2])
-			}
-		}
-
-		zz[k] = v
-	}
-
-	return nil
-}
-
-var (
 	staticCharRE = regexp.MustCompile(`(?m)^static\s+char\s+(.*)\s*\[\]\s*=\s*(".*");$`)
 )
 
 func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
-	c := exec.Command("/usr/bin/infocmp", "-E")
+	c := exec.Command("/usr/bin/infocmp", "-E", "-x")
 	c.Env = []string{"TERM=" + term}
 
 	buf, err := c.CombinedOutput()
@@ -264,14 +287,20 @@ func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
 	}
 
 	ic := &infocmp{
-		names:      strings.Split(names, "|"),
-		boolCaps:   make(map[int]interface{}),
-		numCaps:    make(map[int]interface{}),
-		stringCaps: make(map[int]interface{}),
+		names:          strings.Split(names, "|"),
+		boolCaps:       make(map[int]interface{}),
+		numCaps:        make(map[int]interface{}),
+		stringCaps:     make(map[int]interface{}),
+		extBoolCaps:    make(map[int]interface{}),
+		extNumCaps:     make(map[int]interface{}),
+		extStringCaps:  make(map[int]interface{}),
+		extBoolNames:   make(map[int]string),
+		extNumNames:    make(map[int]string),
+		extStringNames: make(map[int]string),
 	}
 
 	// load string cap data
-	stringCaps := make(map[string]string, len(m))
+	caps := make(map[string]string, len(m))
 	for i, s := range m[1:] {
 		k := strings.TrimSpace(s[1])
 		idx := strings.LastIndex(k, "_s_")
@@ -283,14 +312,14 @@ func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
 		if err != nil {
 			return nil, fmt.Errorf("could not unquote %d: %v", i, err)
 		}
-		stringCaps[k] = v
+		caps[k] = v
 	}
 
 	// extract the values
 	for _, err := range []error{
-		processSect(buf, stringCaps, ic, ic.boolCaps, boolSectRE),
-		processSect(buf, stringCaps, ic, ic.numCaps, numSectRE),
-		processSect(buf, stringCaps, ic, ic.stringCaps, stringSectRE),
+		processSect(buf, caps, ic, ic.boolCaps, ic.extBoolCaps, ic.extBoolNames, boolSectRE),
+		processSect(buf, caps, ic, ic.numCaps, ic.extNumCaps, ic.extNumNames, numSectRE),
+		processSect(buf, caps, ic, ic.stringCaps, ic.extStringCaps, ic.extStringNames, stringSectRE),
 	} {
 		if err != nil {
 			return nil, err
@@ -298,4 +327,83 @@ func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
 	}
 
 	return ic, nil
+}
+
+// regexp's used by processSect.
+var (
+	boolSectRE   = regexp.MustCompile(`_bool_data\[\]\s*=\s*{`)
+	numSectRE    = regexp.MustCompile(`_number_data\[\]\s*=\s*{`)
+	stringSectRE = regexp.MustCompile(`_string_data\[\]\s*=\s*{`)
+	endSectRE    = regexp.MustCompile(`(?m)^};$`)
+
+	capValuesRE = regexp.MustCompile(`(?m)^\s+/\*\s+[0-9]+:\s+([^\s]+)\s+\*/\s+(.*),$`)
+	numRE       = regexp.MustCompile(`^[0-9]+$`)
+	absCanRE    = regexp.MustCompile(`^(ABSENT|CANCELLED)_(BOOLEAN|NUMERIC|STRING)$`)
+)
+
+// processSect processes a text section in the infocmp C export.
+func processSect(buf []byte, caps map[string]string, ic *infocmp, xx, yy map[int]interface{}, extn map[int]string, sectRE *regexp.Regexp) error {
+	var err error
+
+	// extract section
+	start := sectRE.FindIndex(buf)
+	if start == nil || len(start) != 2 {
+		return fmt.Errorf("could not find sect (%s)", sectRE)
+	}
+	end := endSectRE.FindIndex(buf[start[1]:])
+	if end == nil || len(end) != 2 {
+		return fmt.Errorf("could not find end of section (%s)", sectRE)
+	}
+	buf = buf[start[1] : start[1]+end[0]]
+
+	// load caps
+	m := capValuesRE.FindAllStringSubmatch(string(buf), -1)
+	var extc int
+	for i, s := range m {
+		var skip bool
+
+		// determine target
+		target := xx
+		k, ok := shortCapNameMap[s[1]]
+		if !ok {
+			target, k, extn[extc] = yy, extc, s[1]
+			extc++
+		}
+
+		// get cap value
+		var v interface{}
+		switch {
+		case s[2] == "TRUE" || s[2] == "FALSE":
+			v = s[2] == "TRUE"
+
+		case numRE.MatchString(s[2]):
+			var j int64
+			j, err = strconv.ParseInt(s[2], 10, 16)
+			if err != nil {
+				return fmt.Errorf("line %d could not parse: %v", i, err)
+			}
+			v = int(j)
+
+		case absCanRE.MatchString(s[2]):
+			if !ok { // absent/canceled extended cap
+				if strings.HasSuffix(s[2], "NUMERIC") {
+					v = -1
+				} else {
+					skip = true
+				}
+			}
+
+		default:
+			v, ok = caps[s[2]]
+			if !ok {
+				return fmt.Errorf("cap '%s' not defined in cap table", s[2])
+			}
+		}
+
+		if !skip {
+			target[k] = v
+		}
+	}
+
+	return nil
 }
