@@ -92,7 +92,7 @@ func TestValues(t *testing.T) {
 	var boolCount, numCount, stringCount int
 
 	for term := range terms {
-		ic, err := getInfocmpData(term)
+		ic, err := getInfocmpData(t, term)
 		if err != nil {
 			t.Fatalf("term %s could not load infocmp data, got: %v", term, err)
 		}
@@ -242,12 +242,13 @@ var (
 	staticCharRE = regexp.MustCompile(`(?m)^static\s+char\s+(.*)\s*\[\]\s*=\s*(".*");$`)
 )
 
-func getInfocmpData(term string) (*infocmp, error) {
+func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
 	c := exec.Command("infocmp", "-E")
 	c.Env = []string{"TERM=" + term}
 
 	buf, err := c.CombinedOutput()
 	if err != nil {
+		t.Logf("shell error (TERM=%s):\n%s\n", term, string(buf))
 		return nil, err
 	}
 
