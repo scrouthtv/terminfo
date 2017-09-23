@@ -27,14 +27,14 @@ const (
 )
 
 // hasInvalidCaps returns determines if the capabilities in h are invalid.
-func hasInvalidCaps(h []int) bool {
+func hasInvalidCaps(h map[int]int) bool {
 	return h[fieldBoolCount] > capCountBool ||
 		h[fieldNumCount] > capCountNum ||
 		h[fieldStringCount] > capCountString
 }
 
 // capLength returns the total length of the capabilities in bytes.
-func capLength(h []int) int {
+func capLength(h map[int]int) int {
 	return h[fieldNameSize] +
 		h[fieldBoolCount] +
 		(h[fieldNameSize]+h[fieldBoolCount])%2 + // account for word align
@@ -44,14 +44,14 @@ func capLength(h []int) int {
 }
 
 // hasInvalidExtOffset determines if the extended offset field is valid.
-func hasInvalidExtOffset(h []int) bool {
+func hasInvalidExtOffset(h map[int]int) bool {
 	return h[fieldExtBoolCount]+
 		h[fieldExtNumCount]+
 		h[fieldExtStringCount]*2 != h[fieldExtOffsetCount]
 }
 
 // extCapLength returns the total length of extended capabilities in bytes.
-func extCapLength(h []int) int {
+func extCapLength(h map[int]int) int {
 	return h[fieldExtBoolCount] +
 		h[fieldExtBoolCount]%2 + // account for word align
 		h[fieldExtNumCount]*2 +
@@ -119,7 +119,7 @@ func (d *decoder) readInt16() (int, error) {
 }
 
 // readBools reads the next n bools.
-func (d *decoder) readBools(n, cap int) ([]bool, map[int]bool, error) {
+func (d *decoder) readBools(n int) (map[int]bool, map[int]bool, error) {
 	buf, err := d.readBytes(n)
 	if err != nil {
 		return nil, nil, err
@@ -128,7 +128,7 @@ func (d *decoder) readBools(n, cap int) ([]bool, map[int]bool, error) {
 	d.align()
 
 	// process
-	bools, boolsM := make([]bool, cap), make(map[int]bool)
+	bools, boolsM := make(map[int]bool), make(map[int]bool)
 	for i, b := range buf {
 		bools[i] = b == 1
 		if int8(b) == -2 {
@@ -140,17 +140,14 @@ func (d *decoder) readBools(n, cap int) ([]bool, map[int]bool, error) {
 }
 
 // readNums reads the next n nums.
-func (d *decoder) readNums(n, cap int) ([]int, map[int]bool, error) {
+func (d *decoder) readNums(n int) (map[int]int, map[int]bool, error) {
 	buf, err := d.readBytes(n * 2)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// process
-	nums, numsM := make([]int, cap), make(map[int]bool)
-	for i := 0; i < cap; i++ {
-		nums[i] = -1
-	}
+	nums, numsM := make(map[int]int), make(map[int]bool)
 	for i := 0; i < n; i++ {
 		v := int(decodeInt16(buf[i*2 : i*2+2]))
 		//log.Printf(">> %d: %s: %d", i, numCapNames[2*i], v)
@@ -165,7 +162,7 @@ func (d *decoder) readNums(n, cap int) ([]int, map[int]bool, error) {
 
 // readStrings reads the next n strings and processes the string data table
 // having length len.
-func (d *decoder) readStrings(n, len, cap int) ([]string, map[int]bool, error) {
+func (d *decoder) readStrings(n, len int) (map[int]string, map[int]bool, error) {
 	buf, err := d.readBytes(n * 2)
 	if err != nil {
 		return nil, nil, err
@@ -180,7 +177,7 @@ func (d *decoder) readStrings(n, len, cap int) ([]string, map[int]bool, error) {
 	d.align()
 
 	// process string data table
-	s, m := make([]string, cap), make(map[int]bool)
+	s, m := make(map[int]string), make(map[int]bool)
 	for i := 0; i < n; i++ {
 		start := int(decodeInt16(buf[i*2 : i*2+2]))
 		if start == -2 {

@@ -70,11 +70,9 @@ func main() {
 	stringCaps := make(map[string]string)
 	var stringCapNames []string
 	for i, n := range ti.Strings {
-		if n != "" {
-			z := terminfo.StringCapName(terminfo.StringCapType(i))
-			stringCapNames = append(stringCapNames, z)
-			stringCaps[z] = n
-		}
+		z := terminfo.StringCapName(terminfo.StringCapType(i))
+		stringCapNames = append(stringCapNames, z)
+		stringCaps[z] = n
 	}
 	for i := range ti.StringsM {
 		z := terminfo.StringCapName(terminfo.StringCapType(i))

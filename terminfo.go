@@ -47,40 +47,40 @@ type Terminfo struct {
 	Names []string
 
 	// Bools are the bool capabilities.
-	Bools []bool
+	Bools map[int]bool
 
 	// BoolsM are the missing bool capabilities.
 	BoolsM map[int]bool
 
 	// Nums are the num capabilities.
-	Nums []int
+	Nums map[int]int
 
 	// NumsM are the missing num capabilities.
 	NumsM map[int]bool
 
 	// Strings are the string capabilities.
-	Strings []string
+	Strings map[int]string
 
 	// StringsM are the missing string capabilities.
 	StringsM map[int]bool
 
 	// ExtBools are the extended bool capabilities.
-	ExtBools []bool
-
-	// ExtNums are the extended num capabilities.
-	ExtNums []int
-
-	// ExtStrings are the extended string capabilities.
-	ExtStrings []string
+	ExtBools map[int]bool
 
 	// ExtBoolsNames is the map of extended bool capabilities to their index.
-	ExtBoolsNames map[string]int
+	ExtBoolNames map[int]string
+
+	// ExtNums are the extended num capabilities.
+	ExtNums map[int]int
 
 	// ExtNumsNames is the map of extended num capabilities to their index.
-	ExtNumsNames map[string]int
+	ExtNumNames map[int]string
+
+	// ExtStrings are the extended string capabilities.
+	ExtStrings map[int]string
 
 	// ExtStringsNames is the map of extended string capabilities to their index.
-	ExtStringsNames map[string]int
+	ExtStringNames map[int]string
 }
 
 // Decode decodes the terminfo data contained in buf.
@@ -106,7 +106,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 	}
 
 	// read header
-	h, _, err := d.readNums(5, 5)
+	h, _, err := d.readNums(5)
 	if err != nil {
 		return nil, err
 	}
@@ -128,19 +128,19 @@ func Decode(buf []byte) (*Terminfo, error) {
 	}
 
 	// read bool capabilities
-	bools, boolsM, err := d.readBools(h[fieldBoolCount], capCountBool)
+	bools, boolsM, err := d.readBools(h[fieldBoolCount])
 	if err != nil {
 		return nil, err
 	}
 
 	// read num capabilities
-	nums, numsM, err := d.readNums(h[fieldNumCount], capCountNum)
+	nums, numsM, err := d.readNums(h[fieldNumCount])
 	if err != nil {
 		return nil, err
 	}
 
 	// read string capabilities
-	strs, strsM, err := d.readStrings(h[fieldStringCount], h[fieldTableSize], capCountString)
+	strs, strsM, err := d.readStrings(h[fieldStringCount], h[fieldTableSize])
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 	}
 
 	// decode extended header
-	eh, _, err := d.readNums(5, 5)
+	eh, _, err := d.readNums(5)
 	if err != nil {
 		return nil, err
 	}
@@ -177,31 +177,32 @@ func Decode(buf []byte) (*Terminfo, error) {
 	}
 
 	// read extended bools
-	ti.ExtBools, _, err = d.readBools(eh[fieldExtBoolCount], eh[fieldExtBoolCount])
+	ti.ExtBools, _, err = d.readBools(eh[fieldExtBoolCount])
 	if err != nil {
 		return nil, err
 	}
 
 	// read extended nums
-	ti.ExtNums, _, err = d.readNums(eh[fieldExtNumCount], eh[fieldExtNumCount])
+	ti.ExtNums, _, err = d.readNums(eh[fieldExtNumCount])
 	if err != nil {
 		return nil, err
 	}
 
 	// read extended string table
 	count := eh[fieldExtBoolCount] + eh[fieldExtNumCount] + 2*eh[fieldExtStringCount]
-	s, _, err := d.readStrings(count, eh[fieldExtTableSize], count)
+	s, _, err := d.readStrings(count, eh[fieldExtTableSize])
 	if err != nil {
 		return nil, err
 	}
+	s = s
 
 	// grab extended string cap values
-	ti.ExtStrings, s = s[:eh[fieldExtStringCount]], s[eh[fieldExtStringCount]:]
+	/*ti.ExtStrings, s = s[:eh[fieldExtStringCount]], s[eh[fieldExtStringCount]:]
 
 	// grab extended bool, num, string names
 	ti.ExtBoolsNames, s = makemap(s[:eh[fieldExtBoolCount]]), s[eh[fieldExtBoolCount]:]
 	ti.ExtNumsNames, s = makemap(s[:eh[fieldExtNumCount]]), s[eh[fieldExtNumCount]:]
-	ti.ExtStringsNames = makemap(s[:eh[fieldExtStringCount]])
+	ti.ExtStringsNames = makemap(s[:eh[fieldExtStringCount]])*/
 
 	return ti, nil
 }
@@ -242,6 +243,78 @@ func Open(dir, name string) (*Terminfo, error) {
 	termCache.Unlock()
 
 	return ti, nil
+}
+
+// boolCaps returns all bool and extended capabilities using f to format the
+// index key.
+func (ti *Terminfo) boolCaps(f func(BoolCapType) string) map[string]bool {
+	m := make(map[string]bool, len(ti.Bools)+len(ti.ExtBools))
+	for k, v := range ti.Bools {
+		m[f(BoolCapType(k))] = v
+	}
+	for k, v := range ti.ExtBools {
+		m[ti.ExtBoolNames[k]] = v
+	}
+	return m
+}
+
+// BoolCaps returns all bool and extended capabilities.
+func (ti *Terminfo) BoolCaps() map[string]bool {
+	return ti.boolCaps(BoolCapName)
+}
+
+// BoolCaps returns all bool and extended capabilities, using the short name as
+// the map index.
+func (ti *Terminfo) BoolCapsShort() map[string]bool {
+	return ti.boolCaps(BoolCapNameShort)
+}
+
+// numCaps returns all num and extended capabilities using f to format the
+// index key.
+func (ti *Terminfo) numCaps(f func(NumCapType) string) map[string]int {
+	m := make(map[string]int, len(ti.Nums)+len(ti.ExtNums))
+	for k, v := range ti.Nums {
+		m[f(NumCapType(k))] = v
+	}
+	for k, v := range ti.ExtNums {
+		m[ti.ExtNumNames[k]] = v
+	}
+	return m
+}
+
+// NumCaps returns all int and extended capabilities.
+func (ti *Terminfo) NumCaps() map[string]int {
+	return ti.numCaps(NumCapName)
+}
+
+// NumCaps returns all int and extended capabilities, using the short name as
+// the map index.
+func (ti *Terminfo) NumCapsShort() map[string]int {
+	return ti.numCaps(NumCapNameShort)
+}
+
+// stringCaps returns all string and extended capabilities using f to format the
+// index key.
+func (ti *Terminfo) stringCaps(f func(StringCapType) string) map[string]string {
+	m := make(map[string]string, len(ti.Strings)+len(ti.ExtStrings))
+	for k, v := range ti.Strings {
+		m[f(StringCapType(k))] = v
+	}
+	for k, v := range ti.ExtStrings {
+		m[ti.ExtStringNames[k]] = v
+	}
+	return m
+}
+
+// StringCaps returns all string and extended capabilities.
+func (ti *Terminfo) StringCaps() map[string]string {
+	return ti.stringCaps(StringCapName)
+}
+
+// StringCaps returns all string and extended capabilities, using the short name as
+// the map index.
+func (ti *Terminfo) StringCapsShort() map[string]string {
+	return ti.stringCaps(StringCapNameShort)
 }
 
 // Sprintf formats the string cap s, interpolating parameters p.
