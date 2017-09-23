@@ -63,20 +63,20 @@ func process(z interface{}, m map[int]bool, name func(int) string, mask func(int
 			}
 			x[n], names = f, append(names, n)
 		}
-	case map[int]string:
+	case map[int][]byte:
 		for i, a := range v {
-			if a == "" {
+			if a == nil {
 				continue
 			}
 			n := name(i)
 			var f string
 			if mask != nil {
-				f = mask(a)
+				f = mask(string(a))
 			}
 			x[n], names = f, append(names, n)
 		}
 	}
-	for i, _ := range m {
+	for i := range m {
 		n := name(i)
 		x[n], names = "@", append(names, n)
 	}

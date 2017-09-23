@@ -141,7 +141,7 @@ func TestValues(t *testing.T) {
 				if _, ok := ti.StringsM[i]; !ok {
 					//t.Errorf("term %s expected string cap %d (%s) to be missing", term, i, StringCapName(i))
 				}
-			} else if v.(string) != ti.Strings[i] {
+			} else if v.(string) != string(ti.Strings[i]) {
 				t.Errorf("term %s string cap %d (%s) is invalid:", term, i, StringCapName(i))
 				t.Errorf("got:  %#v", ti.Strings[i])
 				t.Errorf("want: %#v", v)

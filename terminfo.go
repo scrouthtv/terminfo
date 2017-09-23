@@ -59,7 +59,7 @@ type Terminfo struct {
 	NumsM map[int]bool
 
 	// Strings are the string capabilities.
-	Strings map[int]string
+	Strings map[int][]byte
 
 	// StringsM are the missing string capabilities.
 	StringsM map[int]bool
@@ -77,7 +77,7 @@ type Terminfo struct {
 	ExtNumNames map[int]string
 
 	// ExtStrings are the extended string capabilities.
-	ExtStrings map[int]string
+	ExtStrings map[int][]byte
 
 	// ExtStringsNames is the map of extended string capabilities to their index.
 	ExtStringNames map[int]string
@@ -151,7 +151,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 		BoolsM:   boolsM,
 		Nums:     nums,
 		NumsM:    numsM,
-		Strings:  makemap(strs),
+		Strings:  strs,
 		StringsM: strsM,
 	}
 
@@ -190,15 +190,19 @@ func Decode(buf []byte) (*Terminfo, error) {
 
 	// read extended string table
 	extStrCount := eh[fieldExtBoolCount] + eh[fieldExtNumCount] + 2*eh[fieldExtStringCount]
-	s, _, err := d.readStrings(extStrCount, eh[fieldExtTableSize])
+	s, _, err := d.readStringTable(extStrCount, eh[fieldExtTableSize])
 	if err != nil {
 		return nil, err
 	}
 
-	// grab extended string cap values
-	ti.ExtStrings, s = makemap(s[:eh[fieldExtStringCount]]), s[eh[fieldExtStringCount]:]
+	// set extended string cap values
+	ti.ExtStrings = make(map[int][]byte, eh[fieldExtStringCount])
+	for i := 0; i < eh[fieldExtStringCount]; i++ {
+		ti.ExtStrings[i] = s[i]
+	}
 
-	// grab extended bool, num, string names
+	// set extended bool, num, string names
+	s = s[eh[fieldExtStringCount]:]
 	ti.ExtBoolNames, s = makemap(s[:eh[fieldExtBoolCount]]), s[eh[fieldExtBoolCount]:]
 	ti.ExtNumNames, s = makemap(s[:eh[fieldExtNumCount]]), s[eh[fieldExtNumCount]:]
 	ti.ExtStringNames = makemap(s[:eh[fieldExtStringCount]])
@@ -297,10 +301,10 @@ func (ti *Terminfo) NumCapsShort() map[string]int {
 func (ti *Terminfo) stringCaps(f func(int) string) map[string]string {
 	m := make(map[string]string, len(ti.Strings)+len(ti.ExtStrings))
 	for k, v := range ti.Strings {
-		m[f(k)] = v
+		m[f(k)] = string(v)
 	}
 	for k, v := range ti.ExtStrings {
-		m[ti.ExtStringNames[k]] = v
+		m[ti.ExtStringNames[k]] = string(v)
 	}
 	return m
 }
@@ -318,13 +322,13 @@ func (ti *Terminfo) StringCapsShort() map[string]string {
 
 // Sprintf formats the string cap s, interpolating parameters p.
 func (ti *Terminfo) Sprintf(i int, p ...interface{}) string {
-	return Sprintf(ti.Strings[i], p...)
+	return Sprintf(string(ti.Strings[i]), p...)
 }
 
 // Goto returns a string suitable for addressing the cursor at the given
 // row and column. The origin 0, 0 is in the upper left corner of the screen.
 func (ti *Terminfo) Goto(row, col int) string {
-	return ti.Sprintf(CursorAddress, row, col)
+	return Sprintf(string(ti.Strings[CursorAddress]), row, col)
 }
 
 // Puts emits the string to the writer, but expands inline padding indications
