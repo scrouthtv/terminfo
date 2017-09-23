@@ -185,43 +185,6 @@ func (d *decoder) readStrings(n, len int) (map[int]string, map[int]bool, error) 
 	return s, m, nil
 }
 
-// esc is the map of escape strings.
-//var esc = map[rune]string{
-//	'\001': `^A`,
-//	'\002': `^B`,
-//	'\003': `^C`,
-//	'\004': `^D`,
-//	'\005': `^E`,
-//	'\006': `^F`,
-//	'\a':   `^G`,
-//	'\b':   `^H`,
-//	'\t':   `^I`,
-//	'\n':   `^J`,
-//	'\013': `^K`,
-//	'\014': `^L`,
-//	'\r':   `^M`,
-//	'\016': `^N`,
-//	'\017': `^O`,
-//	'\022': `^R`,
-//	'\024': `^T`,
-//	'\027': `^W`,
-//	'\030': `^X`,
-//	'\031': `^Y`,
-//	'\032': `^Z`,
-//	'\036': `^^`,
-//
-//	// commas are special characters in the infocmp file format.
-//	',': `\054`,
-//}
-
-// escCh is a map of special chars to escape after an escape code.
-/*var escCh = map[rune]string{
-	//':': true,
-	//'!': true,
-	'\r': `\r`,
-	'\n': `\n`,
-}*/
-
 func peek(rs []rune, pos, len int) rune {
 	if pos < len {
 		return rs[pos]
@@ -273,35 +236,6 @@ func Escape(s string) string {
 		}
 		p = r
 	}
+
 	return z
-
-	/*var z string
-	var p rune
-	for _, r := range s {
-		switch {
-		case r == '\000' || r == '\ufffd':
-			z += `\0`
-
-		case r == '\033':
-			z += `\E`
-
-		case r == '\r':
-			z += `\r`
-
-		case r == '\n':
-			z += `\n`
-
-		case p == '%' && (r == ':' || r == '!'):
-			z += string(r)
-
-		case r == ':' || r == '!' || r == ',' || r == '^' || !unicode.IsPrint(r) || r >= 128:
-			z += `\` + fmt.Sprintf("%03o", int(r))
-
-		default:
-			z += string(r)
-		}
-		p = r
-	}
-
-	return z*/
 }
