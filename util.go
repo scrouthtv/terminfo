@@ -150,10 +150,10 @@ func (d *decoder) readNums(n int) (map[int]int, map[int]bool, error) {
 	nums, numsM := make(map[int]int), make(map[int]bool)
 	for i := 0; i < n; i++ {
 		v := int(decodeInt16(buf[i*2 : i*2+2]))
-		//log.Printf(">> %d: %s: %d", i, numCapNames[2*i], v)
-		nums[i] = v
-		if v == -2 {
-			numsM[v] = true
+		if v >= 0 {
+			nums[i] = v
+		} else if v == -2 {
+			numsM[i] = true
 		}
 	}
 
