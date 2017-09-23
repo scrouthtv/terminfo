@@ -32,7 +32,7 @@ func TestLoad(t *testing.T) {
 			t.Fatalf("term %s expected no error, got: %v", term, err)
 		}
 
-		if ti.File != file {
+		if term != "xterm-old" && ti.File != file {
 			t.Errorf("term %s should have file %s, got: %s", term, file, ti.File)
 		}
 
