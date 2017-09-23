@@ -65,6 +65,9 @@ func process(z interface{}, m map[int]bool, name func(int) string, mask func(int
 		}
 	case map[int]string:
 		for i, a := range v {
+			if a == "" {
+				continue
+			}
 			n := name(i)
 			var f string
 			if mask != nil {
