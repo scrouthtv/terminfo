@@ -15,8 +15,8 @@ TERMS=$(find /usr/share/terminfo -type f)
 for i in $TERMS; do
   NAME=$(basename $i)
 
-  TERM=$NAME $SI -1 -L > $OUT/$NAME-orig.txt
-  TERM=$NAME $BI > $OUT/$NAME-test.txt
+  TERM=$NAME $SI -1 -L -x > $OUT/$NAME-orig.txt
+  TERM=$NAME $BI -x > $OUT/$NAME-test.txt
 done
 
 md5sum $OUT/*-orig.txt > $OUT/orig.md5

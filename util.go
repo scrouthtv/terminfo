@@ -10,7 +10,8 @@ const magic = 0432
 
 // header fields.
 const (
-	fieldNameSize = iota
+	fieldMagic = iota
+	fieldNameSize
 	fieldBoolCount
 	fieldNumCount
 	fieldStringCount
@@ -27,14 +28,14 @@ const (
 )
 
 // hasInvalidCaps returns determines if the capabilities in h are invalid.
-func hasInvalidCaps(h map[int]int) bool {
+func hasInvalidCaps(h []int) bool {
 	return h[fieldBoolCount] > CapCountBool ||
 		h[fieldNumCount] > CapCountNum ||
 		h[fieldStringCount] > CapCountString
 }
 
 // capLength returns the total length of the capabilities in bytes.
-func capLength(h map[int]int) int {
+func capLength(h []int) int {
 	return h[fieldNameSize] +
 		h[fieldBoolCount] +
 		(h[fieldNameSize]+h[fieldBoolCount])%2 + // account for word align
@@ -44,24 +45,19 @@ func capLength(h map[int]int) int {
 }
 
 // hasInvalidExtOffset determines if the extended offset field is valid.
-func hasInvalidExtOffset(h map[int]int) bool {
+func hasInvalidExtOffset(h []int) bool {
 	return h[fieldExtBoolCount]+
 		h[fieldExtNumCount]+
 		h[fieldExtStringCount]*2 != h[fieldExtOffsetCount]
 }
 
 // extCapLength returns the total length of extended capabilities in bytes.
-func extCapLength(h map[int]int) int {
+func extCapLength(h []int) int {
 	return h[fieldExtBoolCount] +
 		h[fieldExtBoolCount]%2 + // account for word align
 		h[fieldExtNumCount]*2 +
 		h[fieldExtOffsetCount]*2 +
 		h[fieldExtTableSize]
-}
-
-// decodeInt16 decodes a 16-bit little endian integer in buf.
-func decodeInt16(buf []byte) int {
-	return int(int16(buf[1])<<8 | int16(buf[0]))
 }
 
 // findNull finds the position of null in buf.
@@ -81,42 +77,47 @@ type decoder struct {
 	len int
 }
 
-// align increments pos when at an uneven word boundary.
-func (d *decoder) align() {
-	if d.pos%2 == 1 {
-		d.pos++
-	}
-}
-
 // readBytes reads the next n bytes of buf, incrementing pos by n.
 func (d *decoder) readBytes(n int) ([]byte, error) {
 	if d.len < d.pos+n {
 		return nil, ErrUnexpectedFileEnd
 	}
-
 	n, d.pos = d.pos, d.pos+n
-
 	return d.buf[n:d.pos], nil
 }
 
-// readInt16 reads the next 16 bit integer.
-func (d *decoder) readInt16() (int, error) {
-	buf, err := d.readBytes(2)
+// readInts reads n number of ints with width w.
+func (d *decoder) readInts(n, w int) ([]int, error) {
+	w /= 8
+	l := n * w
+
+	buf, err := d.readBytes(l)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return decodeInt16(buf), nil
+	// align
+	d.pos += d.pos % 2
+
+	z := make([]int, n)
+	for i, j := 0, 0; i < l; i, j = i+w, j+1 {
+		switch w {
+		case 1:
+			z[i] = int(buf[i])
+		case 2:
+			z[j] = int(int16(buf[i+1])<<8 | int16(buf[i]))
+		}
+	}
+
+	return z, nil
 }
 
 // readBools reads the next n bools.
 func (d *decoder) readBools(n int) (map[int]bool, map[int]bool, error) {
-	buf, err := d.readBytes(n)
+	buf, err := d.readInts(n, 8)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	d.align()
 
 	// process
 	bools, boolsM := make(map[int]bool), make(map[int]bool)
@@ -132,7 +133,7 @@ func (d *decoder) readBools(n int) (map[int]bool, map[int]bool, error) {
 
 // readNums reads the next n nums.
 func (d *decoder) readNums(n int) (map[int]int, map[int]bool, error) {
-	buf, err := d.readBytes(n * 2)
+	buf, err := d.readInts(n, 16)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -140,10 +141,8 @@ func (d *decoder) readNums(n int) (map[int]int, map[int]bool, error) {
 	// process
 	nums, numsM := make(map[int]int), make(map[int]bool)
 	for i := 0; i < n; i++ {
-		v := decodeInt16(buf[i*2 : i*2+2])
-		if v >= 0 {
-			nums[i] = v
-		} else if v == -2 {
+		nums[i] = buf[i]
+		if buf[i] == -2 {
 			numsM[i] = true
 		}
 	}
@@ -154,7 +153,7 @@ func (d *decoder) readNums(n int) (map[int]int, map[int]bool, error) {
 // readStringTable reads the string data for n strings and the accompanying data
 // table of length sz.
 func (d *decoder) readStringTable(n, sz int) ([][]byte, []int, error) {
-	buf, err := d.readBytes(n * 2)
+	buf, err := d.readInts(n, 16)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -165,13 +164,14 @@ func (d *decoder) readStringTable(n, sz int) ([][]byte, []int, error) {
 		return nil, nil, err
 	}
 
-	d.align()
+	// align
+	d.pos += d.pos % 2
 
 	// process
 	s := make([][]byte, n)
 	var m []int
 	for i := 0; i < n; i++ {
-		start := decodeInt16(buf[i*2 : i*2+2])
+		start := buf[i]
 		if start == -2 {
 			m = append(m, i)
 		} else if start >= 0 {
@@ -207,13 +207,22 @@ func (d *decoder) readStrings(n, sz int) (map[int][]byte, map[int]bool, error) {
 	return strs, strsM, nil
 }
 
-// makemap converts a string slice to a map.
-func makemap(s [][]byte) map[int]string {
-	m := make(map[int]string, len(s))
-	for k, v := range s {
-		m[k] = string(v)
+func readStrings(idx []int, data []byte, n int) (map[int][]byte, int, error) {
+	var last int
+	m := make(map[int][]byte)
+	for i := 0; i < n; i++ {
+		start := idx[i]
+		if start < 0 {
+			continue
+		}
+		if end := findNull(data[start:]); end != -1 {
+			m[i] = data[start : start+end]
+			last = start + end
+		} else {
+			return nil, 0, ErrInvalidStringTable
+		}
 	}
-	return m
+	return m, last, nil
 }
 
 // peek peeks a byte.

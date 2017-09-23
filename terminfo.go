@@ -25,6 +25,9 @@ var (
 	// ErrInvalidHeader is the invalid header error.
 	ErrInvalidHeader = errors.New("invalid header")
 
+	// ErrInvalidNames is the invalid names error.
+	ErrInvalidNames = errors.New("invalid names")
+
 	// ErrInvalidExtendedHeader is the invalid extended header error.
 	ErrInvalidExtendedHeader = errors.New("invalid extended header")
 
@@ -68,19 +71,19 @@ type Terminfo struct {
 	ExtBools map[int]bool
 
 	// ExtBoolsNames is the map of extended bool capabilities to their index.
-	ExtBoolNames map[int]string
+	ExtBoolNames map[int][]byte
 
 	// ExtNums are the extended num capabilities.
 	ExtNums map[int]int
 
 	// ExtNumsNames is the map of extended num capabilities to their index.
-	ExtNumNames map[int]string
+	ExtNumNames map[int][]byte
 
 	// ExtStrings are the extended string capabilities.
 	ExtStrings map[int][]byte
 
 	// ExtStringsNames is the map of extended string capabilities to their index.
-	ExtStringNames map[int]string
+	ExtStringNames map[int][]byte
 }
 
 // Decode decodes the terminfo data contained in buf.
@@ -96,19 +99,15 @@ func Decode(buf []byte) (*Terminfo, error) {
 		len: len(buf),
 	}
 
-	// check magic
-	m, err := d.readInt16()
+	// read header
+	h, err := d.readInts(6, 16)
 	if err != nil {
 		return nil, err
-	}
-	if m != magic {
-		return nil, ErrInvalidMagic
 	}
 
-	// read header
-	h, _, err := d.readNums(5)
-	if err != nil {
-		return nil, err
+	// check magic
+	if h[fieldMagic] != magic {
+		return nil, ErrInvalidMagic
 	}
 
 	// check header
@@ -126,6 +125,13 @@ func Decode(buf []byte) (*Terminfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// check name is terminated properly
+	i := findNull(names)
+	if i == -1 {
+		return nil, ErrInvalidNames
+	}
+	names = names[:i]
 
 	// read bool capabilities
 	bools, boolsM, err := d.readBools(h[fieldBoolCount])
@@ -146,7 +152,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 	}
 
 	ti := &Terminfo{
-		Names:    strings.Split(strings.TrimRight(string(names), "\x00"), "|"),
+		Names:    strings.Split(string(names), "|"),
 		Bools:    bools,
 		BoolsM:   boolsM,
 		Nums:     nums,
@@ -161,7 +167,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 	}
 
 	// decode extended header
-	eh, _, err := d.readNums(5)
+	eh, err := d.readInts(5, 16)
 	if err != nil {
 		return nil, err
 	}
@@ -188,24 +194,51 @@ func Decode(buf []byte) (*Terminfo, error) {
 		return nil, err
 	}
 
-	// read extended string table
-	extStrCount := eh[fieldExtBoolCount] + eh[fieldExtNumCount] + 2*eh[fieldExtStringCount]
-	s, _, err := d.readStringTable(extStrCount, eh[fieldExtTableSize])
+	// read string indexes
+	extIndexes, err := d.readInts(eh[fieldExtOffsetCount], 16)
 	if err != nil {
 		return nil, err
 	}
 
-	// set extended string cap values
-	ti.ExtStrings = make(map[int][]byte, eh[fieldExtStringCount])
-	for i := 0; i < eh[fieldExtStringCount]; i++ {
-		ti.ExtStrings[i] = s[i]
+	// read string data table
+	extData, err := d.readBytes(eh[fieldExtTableSize])
+	if err != nil {
+		return nil, err
 	}
 
-	// set extended bool, num, string names
-	s = s[eh[fieldExtStringCount]:]
-	ti.ExtBoolNames, s = makemap(s[:eh[fieldExtBoolCount]]), s[eh[fieldExtBoolCount]:]
-	ti.ExtNumNames, s = makemap(s[:eh[fieldExtNumCount]]), s[eh[fieldExtNumCount]:]
-	ti.ExtStringNames = makemap(s[:eh[fieldExtStringCount]])
+	// check length
+	if d.pos != d.len {
+		return nil, ErrUnexpectedFileEnd
+	}
+
+	var last int
+	// read extended strings
+	ti.ExtStrings, last, err = readStrings(extIndexes, extData, eh[fieldExtStringCount])
+	if err != nil {
+		return nil, err
+	}
+	extIndexes, extData = extIndexes[eh[fieldExtStringCount]:], extData[last+1:]
+
+	// read extended bool names
+	ti.ExtBoolNames, _, err = readStrings(extIndexes, extData, eh[fieldExtBoolCount])
+	if err != nil {
+		return nil, err
+	}
+	extIndexes = extIndexes[eh[fieldExtBoolCount]:]
+
+	// read extended num names
+	ti.ExtNumNames, _, err = readStrings(extIndexes, extData, eh[fieldExtNumCount])
+	if err != nil {
+		return nil, err
+	}
+	extIndexes = extIndexes[eh[fieldExtNumCount]:]
+
+	// read extended string names
+	ti.ExtStringNames, _, err = readStrings(extIndexes, extData, eh[fieldExtStringCount])
+	if err != nil {
+		return nil, err
+	}
+	extIndexes = extIndexes[eh[fieldExtNumCount]:]
 
 	return ti, nil
 }
@@ -250,74 +283,116 @@ func Open(dir, name string) (*Terminfo, error) {
 
 // boolCaps returns all bool and extended capabilities using f to format the
 // index key.
-func (ti *Terminfo) boolCaps(f func(int) string) map[string]bool {
+func (ti *Terminfo) boolCaps(f func(int) string, extended bool) map[string]bool {
 	m := make(map[string]bool, len(ti.Bools)+len(ti.ExtBools))
-	for k, v := range ti.Bools {
-		m[f(k)] = v
-	}
-	for k, v := range ti.ExtBools {
-		m[ti.ExtBoolNames[k]] = v
+	if !extended {
+		for k, v := range ti.Bools {
+			m[f(k)] = v
+		}
+	} else {
+		for k, v := range ti.ExtBools {
+			m[string(ti.ExtBoolNames[k])] = v
+		}
 	}
 	return m
 }
 
-// BoolCaps returns all bool and extended capabilities.
+// BoolCaps returns all bool capabilities.
 func (ti *Terminfo) BoolCaps() map[string]bool {
-	return ti.boolCaps(BoolCapName)
+	return ti.boolCaps(BoolCapName, false)
 }
 
-// BoolCapsShort returns all bool and extended capabilities, using the short name as
-// the map index.
+// BoolCapsShort returns all bool capabilities, using the short name as the
+// index.
 func (ti *Terminfo) BoolCapsShort() map[string]bool {
-	return ti.boolCaps(BoolCapNameShort)
+	return ti.boolCaps(BoolCapNameShort, false)
+}
+
+// ExtBoolCaps returns all extended bool capabilities.
+func (ti *Terminfo) ExtBoolCaps() map[string]bool {
+	return ti.boolCaps(BoolCapName, true)
+}
+
+// ExtBoolCapsShort returns all extended bool capabilities, using the short
+// name as the index.
+func (ti *Terminfo) ExtBoolCapsShort() map[string]bool {
+	return ti.boolCaps(BoolCapNameShort, true)
 }
 
 // numCaps returns all num and extended capabilities using f to format the
 // index key.
-func (ti *Terminfo) numCaps(f func(int) string) map[string]int {
+func (ti *Terminfo) numCaps(f func(int) string, extended bool) map[string]int {
 	m := make(map[string]int, len(ti.Nums)+len(ti.ExtNums))
-	for k, v := range ti.Nums {
-		m[f(k)] = v
-	}
-	for k, v := range ti.ExtNums {
-		m[ti.ExtNumNames[k]] = v
+	if !extended {
+		for k, v := range ti.Nums {
+			m[f(k)] = v
+		}
+	} else {
+		for k, v := range ti.ExtNums {
+			m[string(ti.ExtNumNames[k])] = v
+		}
 	}
 	return m
 }
 
-// NumCaps returns all int and extended capabilities.
+// NumCaps returns all num capabilities.
 func (ti *Terminfo) NumCaps() map[string]int {
-	return ti.numCaps(NumCapName)
+	return ti.numCaps(NumCapName, false)
 }
 
-// NumCapsShort returns all int and extended capabilities, using the short name as
-// the map index.
+// NumCapsShort returns all num capabilities, using the short name as the
+// index.
 func (ti *Terminfo) NumCapsShort() map[string]int {
-	return ti.numCaps(NumCapNameShort)
+	return ti.numCaps(NumCapNameShort, false)
+}
+
+// ExtNumCaps returns all extended num capabilities.
+func (ti *Terminfo) ExtNumCaps() map[string]int {
+	return ti.numCaps(NumCapName, true)
+}
+
+// ExtNumCapsShort returns all extended num capabilities, using the short
+// name as the index.
+func (ti *Terminfo) ExtNumCapsShort() map[string]int {
+	return ti.numCaps(NumCapNameShort, true)
 }
 
 // stringCaps returns all string and extended capabilities using f to format the
 // index key.
-func (ti *Terminfo) stringCaps(f func(int) string) map[string]string {
-	m := make(map[string]string, len(ti.Strings)+len(ti.ExtStrings))
-	for k, v := range ti.Strings {
-		m[f(k)] = string(v)
-	}
-	for k, v := range ti.ExtStrings {
-		m[ti.ExtStringNames[k]] = string(v)
+func (ti *Terminfo) stringCaps(f func(int) string, extended bool) map[string][]byte {
+	m := make(map[string][]byte, len(ti.Strings)+len(ti.ExtStrings))
+	if !extended {
+		for k, v := range ti.Strings {
+			m[f(k)] = v
+		}
+	} else {
+		for k, v := range ti.ExtStrings {
+			m[string(ti.ExtStringNames[k])] = v
+		}
 	}
 	return m
 }
 
-// StringCaps returns all string and extended capabilities.
-func (ti *Terminfo) StringCaps() map[string]string {
-	return ti.stringCaps(StringCapName)
+// StringCaps returns all string capabilities.
+func (ti *Terminfo) StringCaps() map[string][]byte {
+	return ti.stringCaps(StringCapName, false)
 }
 
-// StringCapsShort returns all string and extended capabilities, using the short name as
-// the map index.
-func (ti *Terminfo) StringCapsShort() map[string]string {
-	return ti.stringCaps(StringCapNameShort)
+// StringCapsShort returns all string capabilities, using the short name as the
+// index.
+func (ti *Terminfo) StringCapsShort() map[string][]byte {
+	return ti.stringCaps(StringCapNameShort, false)
+}
+
+// ExtStringCaps returns all extended string capabilities.
+func (ti *Terminfo) ExtStringCaps() map[string][]byte {
+	return ti.stringCaps(StringCapName, true)
+}
+
+// ExtStringCapsShort returns all extended string capabilities, using the short
+// name as the index.
+func (ti *Terminfo) ExtStringCapsShort() map[string][]byte {
+	return ti.stringCaps(StringCapNameShort, true)
 }
 
 // Sprintf formats the string cap s, interpolating parameters p.
