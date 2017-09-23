@@ -1,6 +1,10 @@
-# terminfo [![GoDoc](https://godoc.org/github.com/nhooyr/terminfo?status.svg)](https://godoc.org/github.com/nhooyr/terminfo)
+# terminfo [![GoDoc](https://godoc.org/github.com/xo/terminfo?status.svg)](https://godoc.org/github.com/xo/terminfo)
 
-Simple little terminfo parsing package.
+Package terminfo provides a way to load/decode the terminfo database.
 
-## TODO
-- [ ] Testing
+## Usage
+
+Install in the usual Go way:
+```sh
+go get -u github.com/xo/terminfo
+```
