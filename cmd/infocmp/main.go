@@ -40,7 +40,11 @@ func main() {
 	var boolCaps []string
 	for i, b := range ti.Bools {
 		if b {
-			boolCaps = append(boolCaps, terminfo.BoolCapName(terminfo.BoolCapType(i)))
+			n := terminfo.BoolCapName(terminfo.BoolCapType(i))
+			if ti.BoolsM[i] {
+				n += "@"
+			}
+			boolCaps = append(boolCaps, n)
 		}
 	}
 	sort.Strings(boolCaps)

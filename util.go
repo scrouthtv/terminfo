@@ -2,7 +2,6 @@ package terminfo
 
 import (
 	"fmt"
-	"log"
 	"unicode"
 )
 
@@ -132,8 +131,8 @@ func (d *decoder) readBools(n, cap int) ([]bool, map[int]bool, error) {
 	bools, boolsM := make([]bool, cap), make(map[int]bool)
 	for i, b := range buf {
 		bools[i] = b == 1
-		if int8(b) < 0 {
-			log.Printf(">>> %d (%s): %d", i, boolCapNames[i], b)
+		if int8(b) == -2 {
+			boolsM[i] = true
 		}
 	}
 
