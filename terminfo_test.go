@@ -317,9 +317,9 @@ func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
 
 	// extract the values
 	for _, err := range []error{
-		processSect(buf, caps, ic, ic.boolCaps, ic.extBoolCaps, ic.extBoolNames, boolSectRE),
-		processSect(buf, caps, ic, ic.numCaps, ic.extNumCaps, ic.extNumNames, numSectRE),
-		processSect(buf, caps, ic, ic.stringCaps, ic.extStringCaps, ic.extStringNames, stringSectRE),
+		processSect(buf, caps, ic.boolCaps, ic.extBoolCaps, ic.extBoolNames, boolSectRE),
+		processSect(buf, caps, ic.numCaps, ic.extNumCaps, ic.extNumNames, numSectRE),
+		processSect(buf, caps, ic.stringCaps, ic.extStringCaps, ic.extStringNames, stringSectRE),
 	} {
 		if err != nil {
 			return nil, err
@@ -342,7 +342,7 @@ var (
 )
 
 // processSect processes a text section in the infocmp C export.
-func processSect(buf []byte, caps map[string]string, ic *infocmp, xx, yy map[int]interface{}, extn map[int]string, sectRE *regexp.Regexp) error {
+func processSect(buf []byte, caps map[string]string, xx, yy map[int]interface{}, extn map[int]string, sectRE *regexp.Regexp) error {
 	var err error
 
 	// extract section
