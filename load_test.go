@@ -12,19 +12,27 @@ func TestLoad(t *testing.T) {
 
 	terms := make(map[string]string)
 	for _, dir := range []string{"/lib/terminfo", "/usr/share/terminfo"} {
-		filepath.Walk(dir, func(file string, fi os.FileInfo, err error) error {
+		werr := filepath.Walk(dir, func(file string, fi os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
 			if fi.IsDir() || !fileRE.MatchString(file[len(dir)+1:]) || fi.Mode()&os.ModeSymlink != 0 {
 				return nil
 			}
 			terms[filepath.Base(file)] = file
 			return nil
 		})
+		if werr != nil {
+			t.Fatalf("could not walk directory, got: %v", werr)
+		}
 	}
 
 	for term, file := range terms {
 		//t.Logf("opening %s (%s)", file, term)
-
-		os.Setenv("TERM", term)
+		err := os.Setenv("TERM", term)
+		if err != nil {
+			t.Fatalf("could not set TERM environment variable, got: %v", err)
+		}
 
 		// open
 		ti, err := LoadFromEnv()

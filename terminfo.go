@@ -263,7 +263,7 @@ func (ti *Terminfo) BoolCaps() map[string]bool {
 	return ti.boolCaps(BoolCapName)
 }
 
-// BoolCaps returns all bool and extended capabilities, using the short name as
+// BoolCapsShort returns all bool and extended capabilities, using the short name as
 // the map index.
 func (ti *Terminfo) BoolCapsShort() map[string]bool {
 	return ti.boolCaps(BoolCapNameShort)
@@ -287,7 +287,7 @@ func (ti *Terminfo) NumCaps() map[string]int {
 	return ti.numCaps(NumCapName)
 }
 
-// NumCaps returns all int and extended capabilities, using the short name as
+// NumCapsShort returns all int and extended capabilities, using the short name as
 // the map index.
 func (ti *Terminfo) NumCapsShort() map[string]int {
 	return ti.numCaps(NumCapNameShort)
@@ -311,7 +311,7 @@ func (ti *Terminfo) StringCaps() map[string]string {
 	return ti.stringCaps(StringCapName)
 }
 
-// StringCaps returns all string and extended capabilities, using the short name as
+// StringCapsShort returns all string and extended capabilities, using the short name as
 // the map index.
 func (ti *Terminfo) StringCapsShort() map[string]string {
 	return ti.stringCaps(StringCapNameShort)
@@ -319,7 +319,7 @@ func (ti *Terminfo) StringCapsShort() map[string]string {
 
 // Sprintf formats the string cap s, interpolating parameters p.
 func (ti *Terminfo) Sprintf(i int, p ...interface{}) string {
-	return Sprintf(ti.Strings[int(i)], p...)
+	return Sprintf(ti.Strings[i], p...)
 }
 
 // Goto returns a string suitable for addressing the cursor at the given

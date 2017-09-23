@@ -74,15 +74,6 @@ func findNull(buf []byte) int {
 	return -1
 }
 
-// makemap converts a string slice to a map.
-func makemap(s []string) map[string]int {
-	m := make(map[string]int, len(s))
-	for k, v := range s {
-		m[v] = k
-	}
-	return m
-}
-
 // decoder holds state info while decoding a terminfo file.
 type decoder struct {
 	buf []byte
