@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-var fileRE = regexp.MustCompile("^([0-9]+|[a-zA-Z])/")
-
 func TestOpen(t *testing.T) {
+	var fileRE = regexp.MustCompile("^([0-9]+|[a-zA-Z])/")
+
 	for _, dir := range []string{"/lib/terminfo", "/usr/share/terminfo"} {
 		t.Run(dir[1:], func(dir string) func(*testing.T) {
 			return func(t *testing.T) {
