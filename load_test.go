@@ -32,7 +32,6 @@ func TestLoad(t *testing.T) {
 			continue
 		}
 
-		//t.Logf("opening %s (%s)", file, term)
 		err := os.Setenv("TERM", term)
 		if err != nil {
 			t.Fatalf("could not set TERM environment variable, got: %v", err)
@@ -53,6 +52,5 @@ func TestLoad(t *testing.T) {
 		if len(ti.Names) < 1 {
 			t.Errorf("term %s expected names to have at least one value", term)
 		}
-		//t.Logf("term %s -- '%s'", term, ti.Names[len(ti.Names)-1])
 	}
 }
