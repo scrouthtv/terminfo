@@ -234,7 +234,7 @@ func Escape(s string) string {
 	for i := 0; i < len(bs); i++ {
 		b, n := bs[i], peek(bs, i+1, l)
 		switch {
-		case b == 0 /*|| r == '\ufffd'*/ :
+		case b == 0 || b == '\200':
 			z += `\0`
 
 		case b == '\033':
