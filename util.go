@@ -28,9 +28,9 @@ const (
 
 // hasInvalidCaps returns determines if the capabilities in h are invalid.
 func hasInvalidCaps(h map[int]int) bool {
-	return h[fieldBoolCount] > capCountBool ||
-		h[fieldNumCount] > capCountNum ||
-		h[fieldStringCount] > capCountString
+	return h[fieldBoolCount] > CapCountBool ||
+		h[fieldNumCount] > CapCountNum ||
+		h[fieldStringCount] > CapCountString
 }
 
 // capLength returns the total length of the capabilities in bytes.

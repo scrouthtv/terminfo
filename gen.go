@@ -200,21 +200,21 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 		switch row[2] {
 		case "bool":
 			if boolCount == 0 {
-				isFirst = " BoolCapType = iota"
+				isFirst = " = iota"
 			}
 			buf, names, lastBool, prefix, suffix = bools, &boolNames, name, "indicates", ""
 			boolCount++
 
 		case "num":
 			if numCount == 0 {
-				isFirst = " NumCapType = iota"
+				isFirst = " = iota"
 			}
 			buf, names, lastNum, prefix, suffix = nums, &numNames, name, "is", ""
 			numCount++
 
 		case "str":
 			if stringCount == 0 {
-				isFirst = " StringCapType = iota"
+				isFirst = " = iota"
 			}
 			buf, names, lastString, prefix, suffix = strs, &stringNames, name, "is the", ""
 			stringCount++
@@ -248,9 +248,9 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 
 	// add counts
 	f.WriteString("const (\n")
-	f.WriteString(fmt.Sprintf("capCountBool = int(%s)+1\n", lastBool))
-	f.WriteString(fmt.Sprintf("capCountNum = int(%s)+1\n", lastNum))
-	f.WriteString(fmt.Sprintf("capCountString = int(%s)+1\n", lastString))
+	f.WriteString(fmt.Sprintf("CapCountBool = int(%s)+1\n", lastBool))
+	f.WriteString(fmt.Sprintf("CapCountNum = int(%s)+1\n", lastNum))
+	f.WriteString(fmt.Sprintf("CapCountString = int(%s)+1\n", lastString))
 	f.WriteString(")\n\n")
 
 	// add names

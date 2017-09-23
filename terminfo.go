@@ -247,10 +247,10 @@ func Open(dir, name string) (*Terminfo, error) {
 
 // boolCaps returns all bool and extended capabilities using f to format the
 // index key.
-func (ti *Terminfo) boolCaps(f func(BoolCapType) string) map[string]bool {
+func (ti *Terminfo) boolCaps(f func(int) string) map[string]bool {
 	m := make(map[string]bool, len(ti.Bools)+len(ti.ExtBools))
 	for k, v := range ti.Bools {
-		m[f(BoolCapType(k))] = v
+		m[f(k)] = v
 	}
 	for k, v := range ti.ExtBools {
 		m[ti.ExtBoolNames[k]] = v
@@ -271,10 +271,10 @@ func (ti *Terminfo) BoolCapsShort() map[string]bool {
 
 // numCaps returns all num and extended capabilities using f to format the
 // index key.
-func (ti *Terminfo) numCaps(f func(NumCapType) string) map[string]int {
+func (ti *Terminfo) numCaps(f func(int) string) map[string]int {
 	m := make(map[string]int, len(ti.Nums)+len(ti.ExtNums))
 	for k, v := range ti.Nums {
-		m[f(NumCapType(k))] = v
+		m[f(k)] = v
 	}
 	for k, v := range ti.ExtNums {
 		m[ti.ExtNumNames[k]] = v
@@ -295,10 +295,10 @@ func (ti *Terminfo) NumCapsShort() map[string]int {
 
 // stringCaps returns all string and extended capabilities using f to format the
 // index key.
-func (ti *Terminfo) stringCaps(f func(StringCapType) string) map[string]string {
+func (ti *Terminfo) stringCaps(f func(int) string) map[string]string {
 	m := make(map[string]string, len(ti.Strings)+len(ti.ExtStrings))
 	for k, v := range ti.Strings {
-		m[f(StringCapType(k))] = v
+		m[f(k)] = v
 	}
 	for k, v := range ti.ExtStrings {
 		m[ti.ExtStringNames[k]] = v
@@ -318,8 +318,8 @@ func (ti *Terminfo) StringCapsShort() map[string]string {
 }
 
 // Sprintf formats the string cap s, interpolating parameters p.
-func (ti *Terminfo) Sprintf(s StringCapType, p ...interface{}) string {
-	return Sprintf(ti.Strings[int(s)], p...)
+func (ti *Terminfo) Sprintf(i int, p ...interface{}) string {
+	return Sprintf(ti.Strings[int(i)], p...)
 }
 
 // Goto returns a string suitable for addressing the cursor at the given

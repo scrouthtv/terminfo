@@ -4,7 +4,7 @@ package terminfo
 
 const (
 	// AutoLeftMargin indicates cub1 wraps from column 0 to last column.
-	AutoLeftMargin BoolCapType = iota
+	AutoLeftMargin = iota
 
 	// AutoRightMargin indicates terminal has automatic margins.
 	AutoRightMargin
@@ -138,7 +138,7 @@ const (
 
 const (
 	// Columns is number of columns in a line.
-	Columns NumCapType = iota
+	Columns = iota
 
 	// InitTabs is tabs initially every # spaces.
 	InitTabs
@@ -257,7 +257,7 @@ const (
 
 const (
 	// BackTab is the back tab (P).
-	BackTab StringCapType = iota
+	BackTab = iota
 
 	// Bell is the audible signal (bell) (P).
 	Bell
@@ -1500,9 +1500,9 @@ const (
 )
 
 const (
-	capCountBool   = int(ReturnDoesClrEol) + 1
-	capCountNum    = int(NumberOfFunctionKeys) + 1
-	capCountString = int(BoxChars1) + 1
+	CapCountBool   = int(ReturnDoesClrEol) + 1
+	CapCountNum    = int(NumberOfFunctionKeys) + 1
+	CapCountString = int(BoxChars1) + 1
 )
 
 // boolCapNames are the bool term cap names.

@@ -2,56 +2,32 @@ package terminfo
 
 //go:generate go run gen.go
 
-// BoolCapType is the bool capabilities type.
-type BoolCapType int
-
-// NumCapType is the num capabilities type.
-type NumCapType int
-
-// StringCapType is the string capabilities type.
-type StringCapType int
-
 // BoolCapName returns the bool capability name.
-func BoolCapName(i BoolCapType) string {
+func BoolCapName(i int) string {
 	return boolCapNames[2*int(i)]
 }
 
 // BoolCapNameShort returns the short bool capability name.
-func BoolCapNameShort(i BoolCapType) string {
+func BoolCapNameShort(i int) string {
 	return boolCapNames[2*int(i)+1]
 }
 
 // NumCapName returns the num capability name.
-func NumCapName(i NumCapType) string {
+func NumCapName(i int) string {
 	return numCapNames[2*int(i)]
 }
 
 // NumCapNameShort returns the short num capability name.
-func NumCapNameShort(i NumCapType) string {
+func NumCapNameShort(i int) string {
 	return numCapNames[2*int(i)+1]
 }
 
 // StringCapName returns the string capability name.
-func StringCapName(i StringCapType) string {
+func StringCapName(i int) string {
 	return stringCapNames[2*int(i)]
 }
 
 // StringCapNameShort returns the short string capability name.
-func StringCapNameShort(i StringCapType) string {
+func StringCapNameShort(i int) string {
 	return stringCapNames[2*int(i)+1]
-}
-
-// String satisfies Stringer interface.
-func (i BoolCapType) String() string {
-	return BoolCapName(i)
-}
-
-// String satisfies Stringer interface.
-func (i NumCapType) String() string {
-	return NumCapName(i)
-}
-
-// String satisfies Stringer interface.
-func (i StringCapType) String() string {
-	return StringCapName(i)
 }
