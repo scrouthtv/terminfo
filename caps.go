@@ -43,24 +43,15 @@ func StringCapNameShort(i StringCapType) string {
 
 // String satisfies Stringer interface.
 func (i BoolCapType) String() string {
-	if s := BoolCapNameShort(i); s != "" {
-		return s
-	}
 	return BoolCapName(i)
 }
 
 // String satisfies Stringer interface.
 func (i NumCapType) String() string {
-	if s := NumCapNameShort(i); s != "" {
-		return s
-	}
 	return NumCapName(i)
 }
 
 // String satisfies Stringer interface.
 func (i StringCapType) String() string {
-	if s := StringCapNameShort(i); s != "" {
-		return s
-	}
 	return StringCapName(i)
 }

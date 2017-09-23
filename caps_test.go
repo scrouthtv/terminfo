@@ -28,6 +28,9 @@ func TestCapNames(t *testing.T) {
 		if n == s {
 			t.Errorf("Bool cap %d name and short name should not equal (%s==%s)", i, n, s)
 		}
+		if v := i.String(); v != n {
+			t.Errorf("Bool cap %d string should be same as name", i)
+		}
 	}
 	for i := NumCapType(0); i < NumCapType(capCountNum); i++ {
 		n, s := NumCapName(i), NumCapNameShort(i)
@@ -40,6 +43,9 @@ func TestCapNames(t *testing.T) {
 		if n == s && n != "lines" {
 			t.Errorf("Num cap %d name and short name should not equal (%s==%s)", i, n, s)
 		}
+		if v := i.String(); v != n {
+			t.Errorf("Num cap %d string should be same as name", i)
+		}
 	}
 	for i := StringCapType(0); i < StringCapType(capCountString); i++ {
 		n, s := StringCapName(i), StringCapNameShort(i)
@@ -51,6 +57,9 @@ func TestCapNames(t *testing.T) {
 		}
 		if n == s && n != "tone" && n != "pulse" {
 			t.Errorf("String cap %d name and short name should not equal (%s==%s)", i, n, s)
+		}
+		if v := i.String(); v != n {
+			t.Errorf("String cap %d string should be same as name", i)
 		}
 	}
 }
