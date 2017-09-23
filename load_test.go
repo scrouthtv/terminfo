@@ -22,7 +22,7 @@ func TestLoad(t *testing.T) {
 	}
 
 	for term, file := range terms {
-		t.Logf("opening %s (%s)", file, term)
+		//t.Logf("opening %s (%s)", file, term)
 
 		os.Setenv("TERM", term)
 
@@ -40,6 +40,6 @@ func TestLoad(t *testing.T) {
 		if len(ti.Names) < 1 {
 			t.Errorf("term %s expected names to have at least one value", term)
 		}
-		t.Logf("term %s -- '%s'", term, ti.Names[len(ti.Names)-1])
+		//t.Logf("term %s -- '%s'", term, ti.Names[len(ti.Names)-1])
 	}
 }

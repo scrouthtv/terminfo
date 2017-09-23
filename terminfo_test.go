@@ -14,16 +14,16 @@ func TestOpen(t *testing.T) {
 		t.Run(dir[1:], func(dir string) func(*testing.T) {
 			return func(t *testing.T) {
 				t.Parallel()
-				t.Logf("processing dir %s", dir)
+				//t.Logf("processing dir %s", dir)
 				filepath.Walk(dir, func(file string, fi os.FileInfo, err error) error {
 					if fi.IsDir() || !fileRE.MatchString(file[len(dir)+1:]) {
-						t.Logf("skipping: %s", file)
+						//t.Logf("skipping: %s", file)
 						return nil
 					}
 
 					term := filepath.Base(file)
 
-					t.Logf("opening %s (%s)", file, term)
+					//t.Logf("opening %s (%s)", file, term)
 
 					// open
 					ti, err := Open(dir, term)
@@ -39,7 +39,7 @@ func TestOpen(t *testing.T) {
 					if len(ti.Names) < 1 {
 						t.Errorf("term %s expected names to have at least one value", term)
 					}
-					t.Logf("term %s -- '%s'", term, ti.Names[len(ti.Names)-1])
+					//t.Logf("term %s -- '%s'", term, ti.Names[len(ti.Names)-1])
 
 					return nil
 				})
