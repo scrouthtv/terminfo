@@ -243,7 +243,7 @@ var (
 )
 
 func getInfocmpData(t *testing.T, term string) (*infocmp, error) {
-	c := exec.Command("infocmp", "-E")
+	c := exec.Command("/usr/bin/infocmp", "-E")
 	c.Env = []string{"TERM=" + term}
 
 	buf, err := c.CombinedOutput()
