@@ -153,7 +153,7 @@ func (d *decoder) readNums(n int) (map[int]int, map[int]bool, error) {
 
 // readStrings reads the next n strings and processes the string data table
 // having length len.
-func (d *decoder) readStrings(n, len int) (map[int]string, map[int]bool, error) {
+func (d *decoder) readStrings(n, len int) ([]string, map[int]bool, error) {
 	buf, err := d.readBytes(n * 2)
 	if err != nil {
 		return nil, nil, err
@@ -168,7 +168,7 @@ func (d *decoder) readStrings(n, len int) (map[int]string, map[int]bool, error) 
 	d.align()
 
 	// process string data table
-	s, m := make(map[int]string), make(map[int]bool)
+	s, m := make([]string, n), make(map[int]bool)
 	for i := 0; i < n; i++ {
 		start := int(decodeInt16(buf[i*2 : i*2+2]))
 		if start == -2 {
@@ -185,6 +185,16 @@ func (d *decoder) readStrings(n, len int) (map[int]string, map[int]bool, error) 
 	return s, m, nil
 }
 
+// makemap converts a string slice to a map.
+func makemap(s []string) map[int]string {
+	m := make(map[int]string, len(s))
+	for k, v := range s {
+		m[k] = v
+	}
+	return m
+}
+
+// peek peeks a rune.
 func peek(rs []rune, pos, len int) rune {
 	if pos < len {
 		return rs[pos]

@@ -151,7 +151,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 		BoolsM:   boolsM,
 		Nums:     nums,
 		NumsM:    numsM,
-		Strings:  strs,
+		Strings:  makemap(strs),
 		StringsM: strsM,
 	}
 
@@ -189,20 +189,19 @@ func Decode(buf []byte) (*Terminfo, error) {
 	}
 
 	// read extended string table
-	count := eh[fieldExtBoolCount] + eh[fieldExtNumCount] + 2*eh[fieldExtStringCount]
-	s, _, err := d.readStrings(count, eh[fieldExtTableSize])
+	extStrCount := eh[fieldExtBoolCount] + eh[fieldExtNumCount] + 2*eh[fieldExtStringCount]
+	s, _, err := d.readStrings(extStrCount, eh[fieldExtTableSize])
 	if err != nil {
 		return nil, err
 	}
-	s = s
 
 	// grab extended string cap values
-	/*ti.ExtStrings, s = s[:eh[fieldExtStringCount]], s[eh[fieldExtStringCount]:]
+	ti.ExtStrings, s = makemap(s[:eh[fieldExtStringCount]]), s[eh[fieldExtStringCount]:]
 
 	// grab extended bool, num, string names
-	ti.ExtBoolsNames, s = makemap(s[:eh[fieldExtBoolCount]]), s[eh[fieldExtBoolCount]:]
-	ti.ExtNumsNames, s = makemap(s[:eh[fieldExtNumCount]]), s[eh[fieldExtNumCount]:]
-	ti.ExtStringsNames = makemap(s[:eh[fieldExtStringCount]])*/
+	ti.ExtBoolNames, s = makemap(s[:eh[fieldExtBoolCount]]), s[eh[fieldExtBoolCount]:]
+	ti.ExtNumNames, s = makemap(s[:eh[fieldExtNumCount]]), s[eh[fieldExtNumCount]:]
+	ti.ExtStringNames = makemap(s[:eh[fieldExtStringCount]])
 
 	return ti, nil
 }
