@@ -40,7 +40,7 @@ func main() {
 	var boolCaps []string
 	for i, b := range ti.Bools {
 		if b {
-			n := terminfo.BoolCapName(terminfo.BoolCapType(i))
+			n := terminfo.BoolCapName(i)
 			if ti.BoolsM[i] {
 				n += "@"
 			}
@@ -56,9 +56,9 @@ func main() {
 	var numCaps []string
 	for i, n := range ti.Nums {
 		if n >= 0 {
-			numCaps = append(numCaps, fmt.Sprintf("%s#%d", terminfo.NumCapName(terminfo.NumCapType(i)), n))
+			numCaps = append(numCaps, fmt.Sprintf("%s#%d", terminfo.NumCapName(i), n))
 		} else if n == -2 {
-			numCaps = append(numCaps, fmt.Sprintf("%s@", terminfo.NumCapName(terminfo.NumCapType(i))))
+			numCaps = append(numCaps, fmt.Sprintf("%s@", terminfo.NumCapName(i)))
 		}
 	}
 	sort.Strings(numCaps)
@@ -70,12 +70,12 @@ func main() {
 	stringCaps := make(map[string]string)
 	var stringCapNames []string
 	for i, n := range ti.Strings {
-		z := terminfo.StringCapName(terminfo.StringCapType(i))
+		z := terminfo.StringCapName(i)
 		stringCapNames = append(stringCapNames, z)
 		stringCaps[z] = n
 	}
 	for i := range ti.StringsM {
-		z := terminfo.StringCapName(terminfo.StringCapType(i))
+		z := terminfo.StringCapName(i)
 		stringCapNames = append(stringCapNames, z)
 		stringCaps[z] = "MISSING"
 	}
