@@ -92,6 +92,10 @@ func TestValues(t *testing.T) {
 	var boolCount, numCount, stringCount int
 
 	for term := range terms {
+		if term == "xterm-old" {
+			continue
+		}
+
 		ic, err := getInfocmpData(t, term)
 		if err != nil {
 			t.Fatalf("term %s could not load infocmp data, got: %v", term, err)

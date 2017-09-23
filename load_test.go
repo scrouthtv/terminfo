@@ -28,6 +28,10 @@ func TestLoad(t *testing.T) {
 	}
 
 	for term, file := range terms {
+		if term == "xterm-old" {
+			continue
+		}
+
 		//t.Logf("opening %s (%s)", file, term)
 		err := os.Setenv("TERM", term)
 		if err != nil {
@@ -40,7 +44,8 @@ func TestLoad(t *testing.T) {
 			t.Fatalf("term %s expected no error, got: %v", term, err)
 		}
 
-		if term != "xterm-old" && ti.File != file {
+		// check the name was saved correctly
+		if ti.File != file {
 			t.Errorf("term %s should have file %s, got: %s", term, file, ti.File)
 		}
 
