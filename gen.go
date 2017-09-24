@@ -226,7 +226,7 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 		if isFirst == "" {
 			buf.WriteString("\n")
 		}
-		buf.WriteString("// " + name + " " + formatComment(row[7], prefix, suffix) + "\n" + name + isFirst + "\n")
+		buf.WriteString(fmt.Sprintf("// %s [%s, %s] ", name, row[0], row[1]) + formatComment(row[7], prefix, suffix) + "\n" + name + isFirst + "\n")
 		*names = append(*names, row[0], row[1])
 
 		n++
