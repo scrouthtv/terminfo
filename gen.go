@@ -248,9 +248,9 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 
 	// add counts
 	f.WriteString("const (\n")
-	f.WriteString(fmt.Sprintf("CapCountBool = %s+1\n", lastBool))
-	f.WriteString(fmt.Sprintf("CapCountNum = %s+1\n", lastNum))
-	f.WriteString(fmt.Sprintf("CapCountString = %s+1\n", lastString))
+	f.WriteString(fmt.Sprintf("// CapCountBool is the count of bool capabilities.\nCapCountBool = %s+1\n\n", lastBool))
+	f.WriteString(fmt.Sprintf("// CapCountNum is the count of num capabilities.\nCapCountNum = %s+1\n\n", lastNum))
+	f.WriteString(fmt.Sprintf("// CapCountString is the count of string capabilities.\nCapCountString = %s+1\n", lastString))
 	f.WriteString(")\n\n")
 
 	// add names

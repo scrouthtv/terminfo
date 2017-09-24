@@ -1500,8 +1500,13 @@ const (
 )
 
 const (
-	CapCountBool   = ReturnDoesClrEol + 1
-	CapCountNum    = NumberOfFunctionKeys + 1
+	// CapCountBool is the count of bool capabilities.
+	CapCountBool = ReturnDoesClrEol + 1
+
+	// CapCountNum is the count of num capabilities.
+	CapCountNum = NumberOfFunctionKeys + 1
+
+	// CapCountString is the count of string capabilities.
 	CapCountString = BoxChars1 + 1
 )
 
