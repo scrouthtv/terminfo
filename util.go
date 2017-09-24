@@ -1,10 +1,5 @@
 package terminfo
 
-import (
-	"fmt"
-	"unicode"
-)
-
 const (
 	// maxFileLength is the max file length.
 	maxFileLength = 4096
@@ -73,6 +68,24 @@ func findNull(buf []byte, i int) int {
 		}
 	}
 	return -1
+}
+
+// readStrings decodes n strings from string data table buf using the indexes in idx.
+func readStrings(idx []int, buf []byte, n int) (map[int][]byte, int, error) {
+	var last int
+	m := make(map[int][]byte)
+	for i := 0; i < n; i++ {
+		start := idx[i]
+		if start < 0 {
+			continue
+		}
+		if end := findNull(buf, start); end != -1 {
+			m[i], last = buf[start:end], end+1
+		} else {
+			return nil, 0, ErrInvalidStringTable
+		}
+	}
+	return m, last, nil
 }
 
 // decoder holds state info while decoding a terminfo file.
@@ -210,78 +223,4 @@ func (d *decoder) readStrings(n, sz int) (map[int][]byte, map[int]bool, error) {
 	}
 
 	return strs, strsM, nil
-}
-
-func readStrings(idx []int, data []byte, n int) (map[int][]byte, int, error) {
-	var last int
-	m := make(map[int][]byte)
-	for i := 0; i < n; i++ {
-		start := idx[i]
-		if start < 0 {
-			continue
-		}
-		if end := findNull(data, start); end != -1 {
-			m[i], last = data[start:end], end+1
-		} else {
-			return nil, 0, ErrInvalidStringTable
-		}
-	}
-	return m, last, nil
-}
-
-// peek peeks a byte.
-func peek(bs []byte, pos, len int) byte {
-	if pos < len {
-		return bs[pos]
-	}
-	return 0
-}
-
-// Escape escapes a string using infocmp style escape codes.
-func Escape(s string) string {
-	bs := []byte(s)
-	l := len(bs)
-
-	var z string
-	var p byte
-	var afterEsc bool
-	for i := 0; i < len(bs); i++ {
-		b, n := bs[i], peek(bs, i+1, l)
-		switch {
-		case b == 0 || b == '\200':
-			z += `\0`
-
-		case b == '\033':
-			afterEsc = true
-			z += `\E`
-
-		case b == '\r' && n == '\n' && l > 2:
-			z += string(`\r\n`)
-			i++
-
-		case b == '\r' /*&& i == l-1*/ && l > 2 && i != 0:
-			z += string(`\r`)
-
-		/*case r == '\016' && l > 1 && i == l-1:
-		z += `\` + fmt.Sprintf("%03o", int(r))*/
-
-		case b < ' ' && (p == '\033' || !afterEsc) /*(l < 3 || i == 0 || i == l-1)*/ :
-			z += "^" + string(b+'@')
-
-		/*case (r == '\r' || r == '\017') && (l > 2 && (i == 0 || i == l-1)):
-		z += `\r`*/
-
-		case p == '%' && (b == ':' || b == '!'):
-			z += string(b)
-
-		case b == ',' || b == ':' || b == '!' || b == '^' || !unicode.IsPrint(rune(b)) || b >= 128:
-			z += `\` + fmt.Sprintf("%03o", int(b))
-
-		default:
-			z += string(b)
-		}
-		p = b
-	}
-
-	return z
 }
