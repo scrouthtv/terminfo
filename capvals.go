@@ -1500,9 +1500,9 @@ const (
 )
 
 const (
-	CapCountBool   = int(ReturnDoesClrEol) + 1
-	CapCountNum    = int(NumberOfFunctionKeys) + 1
-	CapCountString = int(BoxChars1) + 1
+	CapCountBool   = ReturnDoesClrEol + 1
+	CapCountNum    = NumberOfFunctionKeys + 1
+	CapCountString = BoxChars1 + 1
 )
 
 // boolCapNames are the bool term cap names.

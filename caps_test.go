@@ -6,13 +6,13 @@ import (
 
 func TestCapSizes(t *testing.T) {
 	if CapCountBool*2 != len(boolCapNames) {
-		t.Fatalf("boolCapNames should have same length as twice boolCapCount")
+		t.Fatalf("boolCapNames should have same length as twice CapCountBool")
 	}
 	if CapCountNum*2 != len(numCapNames) {
-		t.Fatalf("numCapNames should have same length as twice numCapCount")
+		t.Fatalf("numCapNames should have same length as twice CapCountNum")
 	}
 	if CapCountString*2 != len(stringCapNames) {
-		t.Fatalf("stringCapNames should have same length as twice stringCapCount")
+		t.Fatalf("stringCapNames should have same length as twice CapCountString")
 	}
 }
 

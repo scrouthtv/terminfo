@@ -3,56 +3,39 @@ package terminfo
 import (
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
 func TestOpen(t *testing.T) {
-	var fileRE = regexp.MustCompile("^([0-9]+|[a-zA-Z])/")
-
-	for _, dir := range []string{"/lib/terminfo", "/usr/share/terminfo"} {
-		t.Run(dir[1:], func(dir string) func(*testing.T) {
+	for term, filename := range terms(t) {
+		t.Run(strings.TrimPrefix(filename, "/"), func(term, filename string) func(*testing.T) {
 			return func(t *testing.T) {
 				t.Parallel()
-				werr := filepath.Walk(dir, func(file string, fi os.FileInfo, err error) error {
-					if err != nil {
-						return err
-					}
 
-					if fi.IsDir() || !fileRE.MatchString(file[len(dir)+1:]) {
-						return nil
-					}
+				// open
+				ti, err := Open(filepath.Dir(filepath.Dir(filename)), term)
+				if err != nil {
+					t.Fatalf("term %s expected no error, got: %v", term, err)
+				}
 
-					term := filepath.Base(file)
+				if ti.File != filename {
+					t.Errorf("term %s should have file %s, got: %s", term, filename, ti.File)
+				}
 
-					// open
-					ti, err := Open(dir, term)
-					if err != nil {
-						t.Fatalf("term %s expected no error, got: %v", term, err)
-					}
-
-					if ti.File != file {
-						t.Errorf("term %s should have file %s, got: %s", term, file, ti.File)
-					}
-
-					// check we have at least one name
-					if len(ti.Names) < 1 {
-						t.Errorf("term %s expected names to have at least one value", term)
-					}
-
-					return nil
-				})
-				if werr != nil {
-					t.Fatalf("could not walk directory, got: %v", werr)
+				// check we have at least one name
+				if len(ti.Names) < 1 {
+					t.Errorf("term %s expected names to have at least one value", term)
 				}
 			}
-		}(dir))
+		}(term, filename))
 	}
 }
 
@@ -64,174 +47,186 @@ var badTermAcscMap = map[string]bool{
 	"rxvt-cygwin":           true,
 }
 
-func TestValues(t *testing.T) {
-	var fileRE = regexp.MustCompile("^([0-9]+|[a-zA-Z])/")
+var infocmpMap = struct {
+	ic map[string]*infocmp
+	sync.RWMutex
+}{
+	ic: make(map[string]*infocmp),
+}
 
-	terms := make(map[string]string)
-	for _, dir := range []string{"/lib/terminfo", "/usr/share/terminfo"} {
-		werr := filepath.Walk(dir, func(file string, fi os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if fi.IsDir() || !fileRE.MatchString(file[len(dir)+1:]) || fi.Mode()&os.ModeSymlink != 0 {
-				return nil
-			}
-			terms[filepath.Base(file)] = file
-			return nil
-		})
-		if werr != nil {
-			t.Fatalf("could not walk directory, got: %v", werr)
-		}
+func TestValues(t *testing.T) {
+	// load infocmp data
+	err := loadInfocmpData(t)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	var termCount int
-	var boolCount, numCount, stringCount int
-	var extBoolCount, extNumCount, extStringCount int
+	for term, filename := range terms(t) {
+		t.Run(strings.TrimPrefix(filename, "/"), func(t *testing.T) {
+			t.Parallel()
 
+			infocmpMap.RLock()
+			ic := infocmpMap.ic[term]
+			infocmpMap.RUnlock()
+
+			// load
+			ti, err := Load(term)
+			if err != nil {
+				t.Fatalf("term %s expected no error, got: %v", term, err)
+			}
+
+			// check names
+			if !reflect.DeepEqual(ic.names, ti.Names) {
+				t.Errorf("term %s names do not match", term)
+			}
+
+			// check bool caps
+			for i, v := range ic.boolCaps {
+				if v == nil {
+					if _, ok := ti.BoolsM[i]; !ok {
+						t.Errorf("term %s expected bool cap %d (%s) to be missing", term, i, BoolCapName(i))
+					}
+				} else if v.(bool) != ti.Bools[i] {
+					t.Errorf("term %s bool cap %d (%s) should be %t", term, i, BoolCapName(i), v)
+				}
+			}
+
+			// check extended bool caps
+			if len(ic.extBoolCaps) != len(ti.ExtBools) {
+				t.Errorf("term %s should have same number of extended bools (%d, %d)", term, len(ic.extBoolCaps), len(ti.ExtBools))
+			}
+			for i, v := range ic.extBoolCaps {
+				z, ok := ti.ExtBools[i]
+				if !ok {
+					t.Errorf("term %s should have extended bool %d", term, i)
+				}
+				if v.(bool) != z {
+					t.Errorf("term %s extended bool cap %d (%s) should be %t", term, i, ic.extBoolNames[i], v)
+				}
+
+				n, ok := ti.ExtBoolNames[i]
+				if !ok {
+					t.Errorf("term %s missing extended bool %d name", term, i)
+				}
+				if string(n) != ic.extBoolNames[i] {
+					t.Errorf("term %s extended bool %d name should be '%s', got: '%s'", term, i, ic.extBoolNames[i], string(n))
+				}
+			}
+
+			// check num caps
+			for i, v := range ic.numCaps {
+				if v == nil {
+					if _, ok := ti.NumsM[i]; !ok {
+						//t.Errorf("term %s expected num cap %d (%s) to be missing", term, i, NumCapName(i))
+					}
+				} else if v.(int) != ti.Nums[i] {
+					t.Errorf("term %s num cap %d (%s) should be %d", term, i, NumCapName(i), v)
+				}
+			}
+
+			// check extended num caps
+			if len(ic.extNumCaps) != len(ti.ExtNums) {
+				t.Errorf("term %s should have same number of extended nums (%d, %d)", term, len(ic.extNumCaps), len(ti.ExtNums))
+			}
+			for i, v := range ic.extNumCaps {
+				z, ok := ti.ExtNums[i]
+				if !ok {
+					t.Errorf("term %s should have extended num %d", term, i)
+				}
+				if v.(int) != z {
+					t.Errorf("term %s extended num cap %d (%s) should be %t", term, i, ic.extNumNames[i], v)
+				}
+
+				n, ok := ti.ExtNumNames[i]
+				if !ok {
+					t.Errorf("term %s missing extended num %d name", term, i)
+				}
+				if string(n) != ic.extNumNames[i] {
+					t.Errorf("term %s extended num %d name should be '%s', got: '%s'", term, i, ic.extNumNames[i], string(n))
+				}
+			}
+
+			// check string caps
+			for i, v := range ic.stringCaps {
+				if i == AcsChars && badTermAcscMap[term] {
+					continue
+				}
+
+				if v == nil {
+					if _, ok := ti.StringsM[i]; !ok {
+						//t.Errorf("term %s expected string cap %d (%s) to be missing", term, i, StringCapName(i))
+					}
+				} else if v.(string) != string(ti.Strings[i]) {
+					t.Errorf("term %s string cap %d (%s) is invalid:", term, i, StringCapName(i))
+					t.Errorf("got:  %#v", ti.Strings[i])
+					t.Errorf("want: %#v", v)
+				}
+			}
+
+			// check extended string caps
+			if len(ic.extStringCaps) != len(ti.ExtStrings) {
+				t.Errorf("term %s should have same number of extended strings (%d, %d)", term, len(ic.extStringCaps), len(ti.ExtStrings))
+			}
+			for i, v := range ic.extStringCaps {
+				z, ok := ti.ExtStrings[i]
+				if !ok {
+					t.Errorf("term %s should have extended string %d", term, i)
+				}
+				if v.(string) != string(z) {
+					t.Errorf("term %s extended string cap %d (%s) should be %t", term, i, ic.extStringNames[i], v)
+				}
+
+				n, ok := ti.ExtStringNames[i]
+				if !ok {
+					t.Errorf("term %s missing extended string %d name", term, i)
+				}
+				if string(n) != ic.extStringNames[i] {
+					t.Errorf("term %s extended string %d name should be '%s', got: '%s'", term, i, ic.extStringNames[i], string(n))
+				}
+			}
+		})
+	}
+}
+
+func loadInfocmpData(t *testing.T) error {
+	// start loaders
+	wg := new(sync.WaitGroup)
+	termsCh, errs := make(chan string, 64), make(chan error, 64)
+	for i := 0; i < runtime.NumCPU()*2; i++ {
+		go infocmpLoader(wg, t, i, termsCh, errs)
+	}
+
+	for term := range terms(t) {
+		wg.Add(1)
+		termsCh <- term
+	}
+	defer close(termsCh)
+
+	wg.Wait()
+
+	var err error
+	select {
+	case err = <-errs:
+	default:
+	}
+
+	return err
+}
+
+func infocmpLoader(wg *sync.WaitGroup, t *testing.T, id int, terms <-chan string, res chan<- error) {
 	for term := range terms {
-		/*if term != "kterm" {
-			continue
-		}*/
-		if term == "xterm-old" {
-			continue
-		}
-
 		ic, err := getInfocmpData(t, term)
 		if err != nil {
-			t.Fatalf("term %s could not load infocmp data, got: %v", term, err)
+			res <- fmt.Errorf("loader %d: %v", err)
+			return
 		}
 
-		// load
-		ti, err := Load(term)
-		if err != nil {
-			t.Fatalf("term %s expected no error, got: %v", term, err)
-		}
+		infocmpMap.Lock()
+		infocmpMap.ic[term] = ic
+		infocmpMap.Unlock()
 
-		// check names
-		if !reflect.DeepEqual(ic.names, ti.Names) {
-			t.Errorf("term %s names do not match", term)
-		}
-
-		// check bool caps
-		for i, v := range ic.boolCaps {
-			if v == nil {
-				if _, ok := ti.BoolsM[i]; !ok {
-					t.Errorf("term %s expected bool cap %d (%s) to be missing", term, i, BoolCapName(i))
-				}
-			} else if v.(bool) != ti.Bools[i] {
-				t.Errorf("term %s bool cap %d (%s) should be %t", term, i, BoolCapName(i), v)
-			}
-			boolCount++
-		}
-
-		// check extended bool caps
-		if len(ic.extBoolCaps) != len(ti.ExtBools) {
-			t.Errorf("term %s should have same number of extended bools (%d, %d)", term, len(ic.extBoolCaps), len(ti.ExtBools))
-		}
-		for i, v := range ic.extBoolCaps {
-			z, ok := ti.ExtBools[i]
-			if !ok {
-				t.Errorf("term %s should have extended bool %d", term, i)
-			}
-			if v.(bool) != z {
-				t.Errorf("term %s extended bool cap %d (%s) should be %t", term, i, ic.extBoolNames[i], v)
-			}
-
-			n, ok := ti.ExtBoolNames[i]
-			if !ok {
-				t.Errorf("term %s missing extended bool %d name", term, i)
-			}
-			if string(n) != ic.extBoolNames[i] {
-				t.Errorf("term %s extended bool %d name should be '%s', got: '%s'", term, i, ic.extBoolNames[i], string(n))
-			}
-
-			extBoolCount++
-		}
-
-		// check num caps
-		for i, v := range ic.numCaps {
-			if v == nil {
-				if _, ok := ti.NumsM[i]; !ok {
-					//t.Errorf("term %s expected num cap %d (%s) to be missing", term, i, NumCapName(i))
-				}
-			} else if v.(int) != ti.Nums[i] {
-				t.Errorf("term %s num cap %d (%s) should be %d", term, i, NumCapName(i), v)
-			}
-			numCount++
-		}
-
-		// check extended num caps
-		if len(ic.extNumCaps) != len(ti.ExtNums) {
-			t.Errorf("term %s should have same number of extended nums (%d, %d)", term, len(ic.extNumCaps), len(ti.ExtNums))
-		}
-		for i, v := range ic.extNumCaps {
-			z, ok := ti.ExtNums[i]
-			if !ok {
-				t.Errorf("term %s should have extended num %d", term, i)
-			}
-			if v.(int) != z {
-				t.Errorf("term %s extended num cap %d (%s) should be %t", term, i, ic.extNumNames[i], v)
-			}
-
-			n, ok := ti.ExtNumNames[i]
-			if !ok {
-				t.Errorf("term %s missing extended num %d name", term, i)
-			}
-			if string(n) != ic.extNumNames[i] {
-				t.Errorf("term %s extended num %d name should be '%s', got: '%s'", term, i, ic.extNumNames[i], string(n))
-			}
-
-			extNumCount++
-		}
-
-		// check string caps
-		for i, v := range ic.stringCaps {
-			if i == AcsChars && badTermAcscMap[term] {
-				continue
-			}
-
-			if v == nil {
-				if _, ok := ti.StringsM[i]; !ok {
-					//t.Errorf("term %s expected string cap %d (%s) to be missing", term, i, StringCapName(i))
-				}
-			} else if v.(string) != string(ti.Strings[i]) {
-				t.Errorf("term %s string cap %d (%s) is invalid:", term, i, StringCapName(i))
-				t.Errorf("got:  %#v", ti.Strings[i])
-				t.Errorf("want: %#v", v)
-			}
-			stringCount++
-		}
-
-		// check extended string caps
-		if len(ic.extStringCaps) != len(ti.ExtStrings) {
-			t.Errorf("term %s should have same number of extended strings (%d, %d)", term, len(ic.extStringCaps), len(ti.ExtStrings))
-		}
-		for i, v := range ic.extStringCaps {
-			z, ok := ti.ExtStrings[i]
-			if !ok {
-				t.Errorf("term %s should have extended string %d", term, i)
-			}
-			if v.(string) != string(z) {
-				t.Errorf("term %s extended string cap %d (%s) should be %t", term, i, ic.extStringNames[i], v)
-			}
-
-			n, ok := ti.ExtStringNames[i]
-			if !ok {
-				t.Errorf("term %s missing extended string %d name", term, i)
-			}
-			if string(n) != ic.extStringNames[i] {
-				t.Errorf("term %s extended string %d name should be '%s', got: '%s'", term, i, ic.extStringNames[i], string(n))
-			}
-
-			extStringCount++
-		}
-
-		termCount++
+		wg.Done()
 	}
-
-	t.Logf("tested: %d terms", termCount)
-	t.Logf("%d bools, %d nums, %d strings", boolCount, numCount, stringCount)
-	t.Logf("%d extended bools, %d extended nums, %d extended strings", extBoolCount, extNumCount, extStringCount)
 }
 
 var (
