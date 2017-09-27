@@ -51,5 +51,16 @@ func terms(t *testing.T) map[string]string {
 }
 
 func termDirs() []string {
-	return []string{"/lib/terminfo", "/usr/share/terminfo"}
+	var dirs []string
+	for _, dir := range []string{"/lib/terminfo", "/usr/share/terminfo"} {
+		fi, err := os.Stat(dir)
+		if err != nil && !os.IsNotExist(err) {
+			panic(err)
+		}
+		if fi.IsDir() {
+			dirs = append(dirs, dir)
+		}
+	}
+
+	return dirs
 }
