@@ -25,6 +25,11 @@ cp $OUT/orig.md5 $OUT/test.md5
 
 perl -pi -e 's/-orig\.txt$/-test.txt/g' $OUT/test.md5
 
-for i in $(md5sum --quiet -c $OUT/test.md5 |grep FAILED|sed -s 's/: FAILED//'); do
+SED=sed
+if [[ "$(uname)" == "Darwin" ]]; then
+  SED=gsed
+fi
+
+for i in $(md5sum -c $OUT/test.md5 |grep FAILED|$SED -s 's/: FAILED//'); do
   $HOME/src/misc/icdiff/icdiff $(sed -e 's/-test\.txt$/-orig.txt/' <<< "$i") $i
 done
