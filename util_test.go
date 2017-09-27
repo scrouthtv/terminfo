@@ -54,7 +54,9 @@ func termDirs() []string {
 	var dirs []string
 	for _, dir := range []string{"/lib/terminfo", "/usr/share/terminfo"} {
 		fi, err := os.Stat(dir)
-		if err != nil && !os.IsNotExist(err) {
+		if err != nil && os.IsNotExist(err) {
+			continue
+		} else if err != nil {
 			panic(err)
 		}
 		if fi.IsDir() {
