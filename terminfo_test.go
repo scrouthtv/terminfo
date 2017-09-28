@@ -148,7 +148,7 @@ func TestValues(t *testing.T) {
 
 			// check string caps
 			for i, v := range ic.stringCaps {
-				if i == AcsChars && badTermAcscMap[term] {
+				if i == AcsChars && (badTermAcscMap[term] || runtime.GOOS == "darwin") {
 					continue
 				}
 

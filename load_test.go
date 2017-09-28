@@ -2,6 +2,7 @@ package terminfo
 
 import (
 	"os"
+	"runtime"
 	"testing"
 )
 
@@ -19,7 +20,7 @@ func TestLoad(t *testing.T) {
 		}
 
 		// check the name was saved correctly
-		if ti.File != file {
+		if runtime.GOOS != "darwin" && ti.File != file {
 			t.Errorf("term %s should have file %s, got: %s", term, file, ti.File)
 		}
 
