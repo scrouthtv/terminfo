@@ -243,8 +243,9 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 	f.WriteString(hdr)
 
 	// add consts
-	for _, b := range []*bytes.Buffer{bools, nums, strs} {
-		f.WriteString("const (\n")
+	typs := []string{"Bool", "Num", "String"}
+	for i, b := range []*bytes.Buffer{bools, nums, strs} {
+		f.WriteString(fmt.Sprintf("// %s capabilities.\nconst (\n", typs[i]))
 		b.WriteTo(f)
 		f.WriteString(")\n\n")
 	}
