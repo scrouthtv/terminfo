@@ -217,7 +217,7 @@ func infocmpLoader(wg *sync.WaitGroup, t *testing.T, id int, terms <-chan string
 	for term := range terms {
 		ic, err := getInfocmpData(t, term)
 		if err != nil {
-			res <- fmt.Errorf("loader %d: %v", err)
+			res <- fmt.Errorf("loader %d: %v", id, err)
 			return
 		}
 

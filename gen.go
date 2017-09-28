@@ -192,7 +192,7 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 		// manipulation
 		var buf *bytes.Buffer
 		var names *[]string
-		var isFirst, prefix, suffix string
+		var typ, isFirst, prefix, suffix string
 
 		// format variable name
 		name := snaker.SnakeToCamel(row[0])
@@ -203,6 +203,7 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 				isFirst = " = iota"
 			}
 			buf, names, lastBool, prefix, suffix = bools, &boolNames, name, "indicates", ""
+			typ = "bool"
 			boolCount++
 
 		case "num":
@@ -210,6 +211,7 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 				isFirst = " = iota"
 			}
 			buf, names, lastNum, prefix, suffix = nums, &numNames, name, "is", ""
+			typ = "num"
 			numCount++
 
 		case "str":
@@ -217,6 +219,7 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 				isFirst = " = iota"
 			}
 			buf, names, lastString, prefix, suffix = strs, &stringNames, name, "is the", ""
+			typ = "string"
 			stringCount++
 
 		default:
@@ -226,7 +229,7 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 		if isFirst == "" {
 			buf.WriteString("\n")
 		}
-		buf.WriteString(fmt.Sprintf("// %s [%s, %s] ", name, row[0], row[1]) + formatComment(row[7], prefix, suffix) + "\n" + name + isFirst + "\n")
+		buf.WriteString(fmt.Sprintf("// The %s [%s, %s] %s capability ", name, row[0], row[1], typ) + formatComment(row[7], prefix, suffix) + "\n" + name + isFirst + "\n")
 		*names = append(*names, row[0], row[1])
 
 		n++
