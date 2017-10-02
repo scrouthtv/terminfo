@@ -39,14 +39,6 @@ func TestOpen(t *testing.T) {
 	}
 }
 
-var badTermAcscMap = map[string]bool{
-	"rxvt-unicode-256color": true,
-	"rxvt-cygwin-native":    true,
-	"rxvt-unicode":          true,
-	"hurd":                  true,
-	"rxvt-cygwin":           true,
-}
-
 var infocmpMap = struct {
 	ic map[string]*infocmp
 	sync.RWMutex
@@ -148,17 +140,13 @@ func TestValues(t *testing.T) {
 
 			// check string caps
 			for i, v := range ic.stringCaps {
-				if i == AcsChars && (badTermAcscMap[term] || runtime.GOOS == "darwin") {
-					continue
-				}
-
 				if v == nil {
 					if _, ok := ti.StringsM[i]; !ok {
 						//t.Errorf("term %s expected string cap %d (%s) to be missing", term, i, StringCapName(i))
 					}
 				} else if v.(string) != string(ti.Strings[i]) {
 					t.Errorf("term %s string cap %d (%s) is invalid:", term, i, StringCapName(i))
-					t.Errorf("got:  %#v", ti.Strings[i])
+					t.Errorf("got:  %#v", string(ti.Strings[i]))
 					t.Errorf("want: %#v", v)
 				}
 			}
