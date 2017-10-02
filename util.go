@@ -237,7 +237,7 @@ func (d *decoder) readStrings(n, sz int) (map[int][]byte, map[int]bool, error) {
 // see repair_ascc in ncurses-6.0/progs/dump_entry.c
 func canonicalizeAscChars(z []byte) []byte {
 	var c chars
-	enc := make(map[byte]byte, len(z))
+	enc := make(map[byte]byte, len(z)/2)
 	for i := 0; i < len(z); i += 2 {
 		if _, ok := enc[z[i]]; !ok {
 			a, b := z[i], z[i+1]
