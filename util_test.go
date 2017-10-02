@@ -32,8 +32,9 @@ func terms(t *testing.T) map[string]string {
 
 				term := filepath.Base(file)
 				/*if term != "kterm" {
-					continue
+					return nil
 				}*/
+
 				if term == "xterm-old" {
 					return nil
 				}

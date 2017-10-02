@@ -1,5 +1,9 @@
 package terminfo
 
+import (
+	"sort"
+)
+
 const (
 	// maxFileLength is the max file length.
 	maxFileLength = 4096
@@ -214,6 +218,9 @@ func (d *decoder) readStrings(n, sz int) (map[int][]byte, map[int]bool, error) {
 
 	strs := make(map[int][]byte)
 	for k, v := range s {
+		if k == AcsChars {
+			v = canonicalizeAscChars(v)
+		}
 		strs[k] = v
 	}
 
@@ -224,3 +231,31 @@ func (d *decoder) readStrings(n, sz int) (map[int][]byte, map[int]bool, error) {
 
 	return strs, strsM, nil
 }
+
+// canonicalizeAscChars reorders chars to be unique, in order.
+//
+// see repair_ascc in ncurses-6.0/progs/dump_entry.c
+func canonicalizeAscChars(z []byte) []byte {
+	var c chars
+	enc := make(map[byte]byte, len(z))
+	for i := 0; i < len(z); i += 2 {
+		if _, ok := enc[z[i]]; !ok {
+			a, b := z[i], z[i+1]
+			//log.Printf(">>> a: %d %c, b: %d %c", a, a, b, b)
+			c, enc[a] = append(c, b), b
+		}
+	}
+	sort.Sort(c)
+
+	r := make([]byte, 2*len(c))
+	for i := 0; i < len(c); i++ {
+		r[i*2], r[i*2+1] = c[i], enc[c[i]]
+	}
+	return r
+}
+
+type chars []byte
+
+func (c chars) Len() int           { return len(c) }
+func (c chars) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
+func (c chars) Less(i, j int) bool { return c[i] < c[j] }
