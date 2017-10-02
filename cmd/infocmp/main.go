@@ -37,7 +37,7 @@ func main() {
 	)
 	process(
 		ti.StringCaps, ti.ExtStringCaps, ti.StringsM, terminfo.StringCapName,
-		func(v interface{}) string { return "=" + escape(v.(string)) },
+		func(v interface{}) string { return "=" + escape(v.([]byte)) },
 	)
 }
 
@@ -85,7 +85,7 @@ func printIt(z interface{}, m map[int]bool, name func(int) string, mask func(int
 			}
 			var f string
 			if mask != nil {
-				f = mask(string(a))
+				f = mask(a)
 			}
 			if n == "acs_chars" && strings.TrimSpace(strings.TrimPrefix(f, "=")) == "" {
 				continue
@@ -108,58 +108,71 @@ func printIt(z interface{}, m map[int]bool, name func(int) string, mask func(int
 }
 
 // peek peeks a byte.
-func peek(bs []byte, pos, len int) byte {
-	if pos < len {
-		return bs[pos]
+func peek(b []byte, pos, length int) byte {
+	if pos < length {
+		return b[pos]
 	}
 	return 0
 }
 
-// escape escapes a string using infocmp style escape codes.
-func escape(s string) string {
-	bs := []byte(s)
-	l := len(bs)
+func isprint(b byte) bool {
+	return unicode.IsPrint(rune(b))
+}
 
-	var z string
-	var p byte
-	var afterEsc bool
-	for i := 0; i < len(bs); i++ {
-		b, n := bs[i], peek(bs, i+1, l)
-		switch {
-		case b == 0 || b == '\200':
-			z += `\0`
+func realprint(b byte) bool {
+	return b < 127 && isprint(b)
+}
 
-		case b == '\033':
-			afterEsc = true
-			z += `\E`
+func iscntrl(b byte) bool {
+	return unicode.IsControl(rune(b))
+}
 
-		case b == '\r' && n == '\n' && l > 2:
-			z += string(`\r\n`)
-			i++
+func realctl(b byte) bool {
+	return b < 127 && iscntrl(b)
+}
 
-		case b == '\r' /*&& i == l-1*/ && l > 2 && i != 0:
-			z += string(`\r`)
+func isdigit(b byte) bool {
+	return unicode.IsDigit(rune(b))
+}
 
-		/*case r == '\016' && l > 1 && i == l-1:
-		z += `\` + fmt.Sprintf("%03o", int(r))*/
-
-		case b < ' ' && (p == '\033' || !afterEsc) /*(l < 3 || i == 0 || i == l-1)*/ :
-			z += "^" + string(b+'@')
-
-		/*case (r == '\r' || r == '\017') && (l > 2 && (i == 0 || i == l-1)):
-		z += `\r`*/
-
-		case p == '%' && (b == ':' || b == '!'):
-			z += string(b)
-
-		case b == ',' || b == ':' || b == '!' || b == '^' || !unicode.IsPrint(rune(b)) || b >= 128:
-			z += `\` + fmt.Sprintf("%03o", int(b))
-
-		default:
-			z += string(b)
-		}
-		p = b
+// logic taken from _nc_tic_expand from ncurses-6.0/ncurses/tinfo/comp_expand.c
+func escape(buf []byte) string {
+	length := len(buf)
+	if length == 0 {
+		return ""
 	}
 
-	return z
+	var s []byte
+	islong := length > 3
+	for i := 0; i < length; i++ {
+		ch := buf[i]
+		switch {
+		case ch == '%' && realprint(peek(buf, i+1, length)):
+			s = append(s, buf[i], buf[i+1])
+			i++
+
+		case ch == 128:
+			s = append(s, '\\', '0')
+
+		case ch == '\033':
+			s = append(s, '\\', 'E')
+
+		case realprint(ch) && (ch != ',' && ch != ':' && ch != '!' && ch != '^'):
+			s = append(s, ch)
+
+		case ch == '\r' && (islong || (i == length-1 && length > 2)):
+			s = append(s, '\\', 'r')
+
+		case ch == '\n' && islong:
+			s = append(s, '\\', 'n')
+
+		case realctl(ch) && ch != '\\' && (!islong || isdigit(peek(buf, i+1, length))):
+			s = append(s, '^', ch+'@')
+
+		default:
+			s = append(s, []byte(fmt.Sprintf("\\%03o", ch))...)
+		}
+	}
+
+	return string(s)
 }
