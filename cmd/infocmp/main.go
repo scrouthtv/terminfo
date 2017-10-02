@@ -157,7 +157,7 @@ func escape(buf []byte) string {
 		case ch == '\033':
 			s = append(s, '\\', 'E')
 
-		case realprint(ch) && (ch != ',' && ch != ':' && ch != '!' && ch != '^'):
+		case realprint(ch) && ch != ',' && ch != ':' && ch != '!' && ch != '^':
 			s = append(s, ch)
 
 		case ch == '\r' && (islong || (i == length-1 && length > 2)):
