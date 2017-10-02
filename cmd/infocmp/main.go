@@ -87,6 +87,9 @@ func printIt(z interface{}, m map[int]bool, name func(int) string, mask func(int
 			if mask != nil {
 				f = mask(string(a))
 			}
+			if n == "acs_chars" && strings.TrimSpace(strings.TrimPrefix(f, "=")) == "" {
+				continue
+			}
 			x[n], names = f, append(names, n)
 		}
 	}
