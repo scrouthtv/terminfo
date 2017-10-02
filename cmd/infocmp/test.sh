@@ -35,5 +35,5 @@ if [[ "$(uname)" == "Darwin" ]]; then
 fi
 
 for i in $(md5sum -c $OUT/test.md5 |grep FAILED|$SED -s 's/: FAILED//'); do
-  $HOME/src/misc/icdiff/icdiff $(sed -e 's/-test\.txt$/-orig.txt/' <<< "$i") $i
+  $HOME/src/misc/icdiff/icdiff $($SED -e 's/-test\.txt$/-orig.txt/' <<< "$i") $i
 done
