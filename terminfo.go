@@ -396,15 +396,15 @@ func (ti *Terminfo) ExtStringCapsShort() map[string][]byte {
 	return ti.stringCaps(StringCapNameShort, true)
 }
 
-// Sprintf formats the string cap s, interpolating parameters p.
-func (ti *Terminfo) Sprintf(i int, p ...interface{}) string {
-	return Sprintf(string(ti.Strings[i]), p...)
+// Printf formats the string cap i, interpolating parameters v.
+func (ti *Terminfo) Printf(i int, v ...interface{}) string {
+	return Printf(ti.Strings[i], v...)
 }
 
 // Goto returns a string suitable for addressing the cursor at the given
 // row and column. The origin 0, 0 is in the upper left corner of the screen.
 func (ti *Terminfo) Goto(row, col int) string {
-	return Sprintf(string(ti.Strings[CursorAddress]), row, col)
+	return Printf(ti.Strings[CursorAddress], row, col)
 }
 
 // Puts emits the string to the writer, but expands inline padding indications

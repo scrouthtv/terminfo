@@ -12,7 +12,7 @@ import (
 // parametizer represents the a scan state for a parameterized string.
 type parametizer struct {
 	// z is the string to parameterize
-	z string
+	z []byte
 
 	// pos is the current position in s.
 	pos int
@@ -51,21 +51,22 @@ var parametizerPool = sync.Pool{
 }
 
 // newParametizer returns a new initialized parametizer from the pool.
-func newParametizer(s string) *parametizer {
+func newParametizer(z []byte) *parametizer {
 	p := parametizerPool.Get().(*parametizer)
-	p.z = s
+	p.z = z
 
 	return p
 }
 
 // reset resets the parametizer.
 func (p *parametizer) reset() {
-	p.pos = 0
-	p.nest = 0
+	p.pos, p.nest = 0, 0
+
 	p.s.reset()
 	p.buf.Reset()
-	p.params = [9]interface{}{}
-	p.vars = [26]interface{}{}
+
+	p.params, p.vars = [9]interface{}{}, [26]interface{}{}
+
 	parametizerPool.Put(p)
 }
 
@@ -93,7 +94,7 @@ func (p *parametizer) peek() (byte, error) {
 func (p *parametizer) writeFrom(ppos int) {
 	if p.pos > ppos {
 		// append remaining characters.
-		p.buf.WriteString(p.z[ppos:p.pos])
+		p.buf.Write(p.z[ppos:p.pos])
 	}
 }
 
@@ -105,11 +106,13 @@ func (p *parametizer) scanTextFn() stateFn {
 			p.writeFrom(ppos)
 			return nil
 		}
+
 		if ch == '%' {
 			p.writeFrom(ppos)
 			p.pos++
 			return p.scanCodeFn
 		}
+
 		p.pos++
 	}
 }
@@ -119,6 +122,7 @@ func (p *parametizer) scanCodeFn() stateFn {
 	if err != nil {
 		return nil
 	}
+
 	switch ch {
 	case '%':
 		p.buf.WriteByte('%')
@@ -172,6 +176,7 @@ func (p *parametizer) scanCodeFn() stateFn {
 		if err != nil {
 			return nil
 		}
+
 		p.s.push(ch)
 
 		// skip the '\''
@@ -275,12 +280,12 @@ func (p *parametizer) scanCodeFn() stateFn {
 func (p *parametizer) scanFormatFn() stateFn {
 	// the character was already read, so no need to check the error.
 	ch, _ := p.peek()
-	// 6 should be the maximum size of a format string, for example "%:-9.9d".
-	f := make([]byte, 2, 6)
-	f[0], f[1] = '%', ch
+
+	// 6 should be the maximum length of a format string, for example "%:-9.9d".
+	f := []byte{'%', ch, 0, 0, 0, 0}
+
 	var err error
 
-loop:
 	for {
 		p.pos++
 		ch, err = p.peek()
@@ -292,15 +297,15 @@ loop:
 		switch ch {
 		case 'o', 'd', 'x', 'X':
 			fmt.Fprintf(p.buf, string(f), p.s.popInt())
-			break loop
+			break
 
 		case 's':
 			fmt.Fprintf(p.buf, string(f), p.s.popString())
-			break loop
+			break
 
 		case 'c':
 			fmt.Fprintf(p.buf, string(f), p.s.popByte())
-			break loop
+			break
 		}
 	}
 
@@ -464,9 +469,9 @@ func (p *parametizer) skipElseFn() stateFn {
 	return p.skipTextFn
 }
 
-// Sprintf evaluates a parameterized terminfo string s, interpolating params.
-func Sprintf(s string, params ...interface{}) string {
-	p := newParametizer(s)
+// Printf evaluates a parameterized terminfo value z, interpolating params.
+func Printf(z []byte, params ...interface{}) string {
+	p := newParametizer(z)
 	defer p.reset()
 
 	// make sure we always have 9 parameters -- makes it easier
