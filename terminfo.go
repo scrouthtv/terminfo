@@ -39,6 +39,9 @@ var (
 
 	// ErrFileNotFound is the file not found error.
 	ErrFileNotFound = errors.New("file not found")
+
+	// ErrInvalidTermProgramVersion is the invalid TERM_PROGRAM_VERSION error.
+	ErrInvalidTermProgramVersion = errors.New("invalid TERM_PROGRAM_VERSION")
 )
 
 // Terminfo describes a terminal's capabilities.
