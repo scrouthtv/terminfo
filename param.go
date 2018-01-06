@@ -482,3 +482,9 @@ func Printf(z []byte, params ...interface{}) string {
 
 	return p.exec()
 }
+
+// Fprintf evaluates a parameterized terminfo value z, interpolating params and
+// writing to w.
+func Fprintf(w io.Writer, z []byte, params ...interface{}) {
+	w.Write([]byte(Printf(z, params...)))
+}

@@ -3,6 +3,7 @@ package terminfo
 
 import (
 	"errors"
+	"io"
 	"io/ioutil"
 	"path"
 	"strconv"
@@ -399,9 +400,53 @@ func (ti *Terminfo) ExtStringCapsShort() map[string][]byte {
 	return ti.stringCaps(StringCapNameShort, true)
 }
 
+// Has determines if the bool cap i is present.
+func (ti *Terminfo) Has(i int) bool {
+	return ti.Bools[i]
+}
+
+// Num returns the num cap i, or -1 if not present.
+func (ti *Terminfo) Num(i int) int {
+	n, ok := ti.Nums[i]
+	if !ok {
+		return -1
+	}
+	return n
+}
+
 // Printf formats the string cap i, interpolating parameters v.
 func (ti *Terminfo) Printf(i int, v ...interface{}) string {
 	return Printf(ti.Strings[i], v...)
+}
+
+// Fprintf prints the string cap i to writer w, interpolating parameters v.
+func (ti *Terminfo) Fprintf(w io.Writer, i int, v ...interface{}) {
+	Fprintf(w, ti.Strings[i], v...)
+}
+
+// Color takes a foreground and background color and returns string that sets
+// them for this terminal.
+func (ti *Terminfo) Colorf(fg, bg int, str string) string {
+	maxColors := int(ti.Nums[MaxColors])
+
+	// map bright colors to lower versions if the color table only holds 8.
+	if maxColors == 8 {
+		if fg > 7 && fg < 16 {
+			fg -= 8
+		}
+		if bg > 7 && bg < 16 {
+			bg -= 8
+		}
+	}
+
+	var s string
+	if maxColors > fg && fg >= 0 {
+		s += ti.Printf(SetAForeground, fg)
+	}
+	if maxColors > bg && bg >= 0 {
+		s += ti.Printf(SetABackground, bg)
+	}
+	return s + str + ti.Printf(ExitAttributeMode)
 }
 
 // Goto returns a string suitable for addressing the cursor at the given
@@ -477,32 +522,4 @@ func (ti *Terminfo) Goto(row, col int) string {
 	}
 
 	return n, nil
-}*/
-
-// Color takes a foreground and background color and returns string that sets
-// them for this terminal.
-//
-// TODO redo with styles integer
-/*func (ti *Terminfo) Color(fg, bg int) (rv string) {
-	maxColors := int(ti.Nums[MaxColors])
-
-	// map bright colors to lower versions if the color table only holds 8.
-	if maxColors == 8 {
-		if fg > 7 && fg < 16 {
-			fg -= 8
-		}
-		if bg > 7 && bg < 16 {
-			bg -= 8
-		}
-	}
-
-	if maxColors > fg && fg >= 0 {
-		rv += ti.Parm(SetAForeground, fg)
-	}
-
-	if maxColors > bg && bg >= 0 {
-		rv += ti.Parm(SetABackground, bg)
-	}
-
-	return
 }*/

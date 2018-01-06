@@ -80,7 +80,7 @@ func ColorLevelFromEnv() (ColorLevel, error) {
 
 		v, ok := ti.Nums[MaxColors]
 		switch {
-		case !ok || v < 16:
+		case !ok || v <= 16:
 			return ColorLevelNone, nil
 		case ok && v >= 256:
 			return ColorLevelHundreds, nil
