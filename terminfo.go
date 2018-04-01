@@ -2,7 +2,6 @@
 package terminfo
 
 import (
-	"errors"
 	"io"
 	"io/ioutil"
 	"path"
@@ -10,39 +9,47 @@ import (
 	"strings"
 )
 
-var (
+// Error is a terminfo error.
+type Error string
+
+// Error satisfies the error interface.
+func (err Error) Error() string {
+	return string(err)
+}
+
+const (
 	// ErrInvalidFileSize is the invalid file size error.
-	ErrInvalidFileSize = errors.New("invalid file size")
+	ErrInvalidFileSize Error = "invalid file size"
 
 	// ErrUnexpectedFileEnd is the unexpected file end error.
-	ErrUnexpectedFileEnd = errors.New("unexpected file end")
+	ErrUnexpectedFileEnd Error = "unexpected file end"
 
 	// ErrInvalidStringTable is the invalid string table error.
-	ErrInvalidStringTable = errors.New("invalid string table")
+	ErrInvalidStringTable Error = "invalid string table"
 
 	// ErrInvalidMagic is the invalid magic error.
-	ErrInvalidMagic = errors.New("invalid magic")
+	ErrInvalidMagic Error = "invalid magic"
 
 	// ErrInvalidHeader is the invalid header error.
-	ErrInvalidHeader = errors.New("invalid header")
+	ErrInvalidHeader Error = "invalid header"
 
 	// ErrInvalidNames is the invalid names error.
-	ErrInvalidNames = errors.New("invalid names")
+	ErrInvalidNames Error = "invalid names"
 
 	// ErrInvalidExtendedHeader is the invalid extended header error.
-	ErrInvalidExtendedHeader = errors.New("invalid extended header")
+	ErrInvalidExtendedHeader Error = "invalid extended header"
 
 	// ErrEmptyTermName is the empty term name error.
-	ErrEmptyTermName = errors.New("empty term name")
+	ErrEmptyTermName Error = "empty term name"
 
 	// ErrDatabaseDirectoryNotFound is the database directory not found error.
-	ErrDatabaseDirectoryNotFound = errors.New("database directory not found")
+	ErrDatabaseDirectoryNotFound Error = "database directory not found"
 
 	// ErrFileNotFound is the file not found error.
-	ErrFileNotFound = errors.New("file not found")
+	ErrFileNotFound Error = "file not found"
 
 	// ErrInvalidTermProgramVersion is the invalid TERM_PROGRAM_VERSION error.
-	ErrInvalidTermProgramVersion = errors.New("invalid TERM_PROGRAM_VERSION")
+	ErrInvalidTermProgramVersion Error = "invalid TERM_PROGRAM_VERSION"
 )
 
 // Terminfo describes a terminal's capabilities.
