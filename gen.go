@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	ncursesSrc = "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-6.0.tar.gz"
+	ncursesSrc = "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-6.1.tar.gz"
 
-	capsFile = "ncurses-6.0/include/Caps"
+	capsFile = "ncurses-6.1/include/Caps"
 )
 
 var (
