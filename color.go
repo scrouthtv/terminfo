@@ -50,7 +50,7 @@ func ColorLevelFromEnv() (ColorLevel, error) {
 	// check for overriding environment variables
 	colorTerm, termProg, forceColor := os.Getenv("COLORTERM"), os.Getenv("TERM_PROGRAM"), os.Getenv("FORCE_COLOR")
 	switch {
-	case colorTerm == "truecolor" || colorTerm == "24bit" || termProg == "Hyper":
+	case strings.Contains(colorTerm, "truecolor") || strings.Contains(colorTerm, "24bit") || termProg == "Hyper":
 		return ColorLevelMillions, nil
 	case colorTerm != "" || forceColor != "":
 		return ColorLevelBasic, nil
