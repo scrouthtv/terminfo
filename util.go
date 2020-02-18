@@ -10,6 +10,9 @@ const (
 
 	// magic is the file magic for terminfo files.
 	magic = 0432
+
+	// magicExtended is the file magic for terminfo files with the extended number format.
+	magicExtended = 01036
 )
 
 // header fields.
@@ -56,10 +59,10 @@ func hasInvalidExtOffset(h []int) bool {
 }
 
 // extCapLength returns the total length of extended capabilities in bytes.
-func extCapLength(h []int) int {
+func extCapLength(h []int, numWidth int) int {
 	return h[fieldExtBoolCount] +
 		h[fieldExtBoolCount]%2 + // account for word align
-		h[fieldExtNumCount]*2 +
+		h[fieldExtNumCount]*(numWidth/8) +
 		h[fieldExtOffsetCount]*2 +
 		h[fieldExtTableSize]
 }
@@ -128,6 +131,8 @@ func (d *decoder) readInts(n, w int) ([]int, error) {
 			z[i] = int(buf[i])
 		case 2:
 			z[j] = int(int16(buf[i+1])<<8 | int16(buf[i]))
+		case 4:
+			z[j] = int(buf[i+3])<<24 | int(buf[i+2])<<16 | int(buf[i+1])<<8 | int(buf[i])
 		}
 	}
 
@@ -154,8 +159,8 @@ func (d *decoder) readBools(n int) (map[int]bool, map[int]bool, error) {
 }
 
 // readNums reads the next n nums.
-func (d *decoder) readNums(n int) (map[int]int, map[int]bool, error) {
-	buf, err := d.readInts(n, 16)
+func (d *decoder) readNums(n, w int) (map[int]int, map[int]bool, error) {
+	buf, err := d.readInts(n, w)
 	if err != nil {
 		return nil, nil, err
 	}

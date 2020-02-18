@@ -117,8 +117,14 @@ func Decode(buf []byte) (*Terminfo, error) {
 		return nil, err
 	}
 
+	var numWidth int
+
 	// check magic
-	if h[fieldMagic] != magic {
+	if h[fieldMagic] == magic {
+		numWidth = 16
+	} else if h[fieldMagic] == magicExtended {
+		numWidth = 32
+	} else {
 		return nil, ErrInvalidMagic
 	}
 
@@ -152,7 +158,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 	}
 
 	// read num caps
-	nums, numsM, err := d.readNums(h[fieldNumCount])
+	nums, numsM, err := d.readNums(h[fieldNumCount], numWidth)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +196,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 	}
 
 	// check extended cap lengths
-	if d.len-d.pos != extCapLength(eh) {
+	if d.len-d.pos != extCapLength(eh, numWidth) {
 		return nil, ErrInvalidExtendedHeader
 	}
 
@@ -201,7 +207,7 @@ func Decode(buf []byte) (*Terminfo, error) {
 	}
 
 	// read extended num caps
-	ti.ExtNums, _, err = d.readNums(eh[fieldExtNumCount])
+	ti.ExtNums, _, err = d.readNums(eh[fieldExtNumCount], numWidth)
 	if err != nil {
 		return nil, err
 	}
