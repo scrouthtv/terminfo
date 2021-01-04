@@ -21,18 +21,12 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/knq/snaker"
+	"github.com/kenshaw/snaker"
 )
 
 const (
-	ncursesSrc = "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-6.1.tar.gz"
-
-	capsFile = "ncurses-6.1/include/Caps"
-)
-
-var (
-	flagCache = flag.String("cache", ".cache", "cache directory")
-	flagOut   = flag.String("out", "capvals.go", "out file")
+	ncursesSrc = "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-6.2.tar.gz"
+	capsFile   = "ncurses-6.2/include/Caps"
 )
 
 var commentRE = regexp.MustCompile(`^#.*`)
@@ -42,56 +36,54 @@ func notSpace(r rune) bool {
 }
 
 func main() {
+	cache := flag.String("cache", ".cache", "cache directory")
+	out := flag.String("out", "capvals.go", "out file")
 	flag.Parse()
-
-	var err error
-
-	// get archive
-	buf, err := get(ncursesSrc)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// load caps file
-	capsBuf, err := load(buf, capsFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// process caps
-	outBuf, err := processCaps(capsBuf)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// write
-	err = ioutil.WriteFile(*flagOut, outBuf, 0644)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// gofmt
-	err = exec.Command("gofmt", "-w", "-s", *flagOut).Run()
-	if err != nil {
+	if err := run(*cache, *out); err != nil {
 		log.Fatal(err)
 	}
 }
 
+func run(cache, out string) error {
+	// get archive
+	buf, err := get(cache, ncursesSrc)
+	if err != nil {
+		return err
+	}
+	// load caps file
+	capsBuf, err := load(buf, capsFile)
+	if err != nil {
+		return err
+	}
+	// process caps
+	outBuf, err := processCaps(capsBuf)
+	if err != nil {
+		return err
+	}
+	// write
+	if err := ioutil.WriteFile(out, outBuf, 0o644); err != nil {
+		return err
+	}
+	// gofmt
+	if err := exec.Command("gofmt", "-w", "-s", out).Run(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // get retrieves a file either from the the http path, or from disk.
-func get(file string) ([]byte, error) {
-	err := os.MkdirAll(*flagCache, 0755)
+func get(cache, file string) ([]byte, error) {
+	err := os.MkdirAll(cache, 0o755)
 	if err != nil {
 		return nil, err
 	}
-
 	// check if the file exists
-	cacheFile := filepath.Join(*flagCache, filepath.Base(file))
+	cacheFile := filepath.Join(cache, filepath.Base(file))
 	fi, err := os.Stat(cacheFile)
 	if err == nil && !fi.IsDir() {
 		log.Printf("loading %s", cacheFile)
 		return ioutil.ReadFile(cacheFile)
 	}
-
 	// retrieve
 	log.Printf("retrieving %s", file)
 	res, err := http.Get(file)
@@ -99,20 +91,17 @@ func get(file string) ([]byte, error) {
 		return nil, err
 	}
 	defer res.Body.Close()
-
 	// read
 	buf, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
-
 	// cache
 	log.Printf("saving %s", cacheFile)
-	err = ioutil.WriteFile(cacheFile, buf, 0644)
+	err = ioutil.WriteFile(cacheFile, buf, 0o644)
 	if err != nil {
 		return nil, err
 	}
-
 	return buf, nil
 }
 
@@ -124,7 +113,6 @@ func load(buf []byte, file string) ([]byte, error) {
 		return nil, err
 	}
 	defer gr.Close()
-
 	// walk files in tar
 	tr := tar.NewReader(gr)
 	for {
@@ -134,17 +122,14 @@ func load(buf []byte, file string) ([]byte, error) {
 		} else if err != nil {
 			return nil, err
 		}
-
 		// found file, read contents
 		if h.Name == file {
 			b := bytes.NewBuffer(make([]byte, h.Size))
-
 			var n int64
 			n, err = io.Copy(b, tr)
 			if err != nil {
 				return nil, err
 			}
-
 			// check that all bytes were copied
 			if n != h.Size {
 				return nil, errors.New("could not read entire file")
@@ -152,24 +137,19 @@ func load(buf []byte, file string) ([]byte, error) {
 			return b.Bytes(), nil
 		}
 	}
-
 	return nil, fmt.Errorf("could not load file %s", file)
 }
 
 // processCaps processes the data in the Caps file.
 func processCaps(capsBuf []byte) ([]byte, error) {
-	var err error
-
 	// create scanner
 	s := bufio.NewScanner(bytes.NewReader(capsBuf))
 	s.Buffer(make([]byte, 1024*1024), 1024*1024)
-
 	// storage
 	bools, nums, strs := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
 	var boolCount, numCount, stringCount int
 	var lastBool, lastNum, lastString string
 	var boolNames, numNames, stringNames []string
-
 	// process caps
 	var n int
 	for s.Scan() {
@@ -178,7 +158,6 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 		if len(line) == 0 || strings.HasPrefix(line, "capalias") || strings.HasPrefix(line, "infoalias") {
 			continue
 		}
-
 		// split line's columns
 		row := make([]string, 8)
 		for i := 0; i < 7; i++ {
@@ -188,15 +167,12 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 			line = line[start+end:]
 		}
 		row[7] = strings.TrimSpace(line)
-
 		// manipulation
 		var buf *bytes.Buffer
 		var names *[]string
 		var typ, isFirst, prefix, suffix string
-
 		// format variable name
 		name := snaker.SnakeToCamel(row[0])
-
 		switch row[2] {
 		case "bool":
 			if boolCount == 0 {
@@ -205,7 +181,6 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 			buf, names, lastBool, prefix, suffix = bools, &boolNames, name, "indicates", ""
 			typ = "bool"
 			boolCount++
-
 		case "num":
 			if numCount == 0 {
 				isFirst = " = iota"
@@ -213,7 +188,6 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 			buf, names, lastNum, prefix, suffix = nums, &numNames, name, "is", ""
 			typ = "num"
 			numCount++
-
 		case "str":
 			if stringCount == 0 {
 				isFirst = " = iota"
@@ -221,27 +195,21 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 			buf, names, lastString, prefix, suffix = strs, &stringNames, name, "is the", ""
 			typ = "string"
 			stringCount++
-
 		default:
 			log.Fatal("line %d is invalid, has type: %s", n, row[2])
 		}
-
 		if isFirst == "" {
 			buf.WriteString("\n")
 		}
 		buf.WriteString(fmt.Sprintf("// The %s [%s, %s] %s capability ", name, row[0], row[1], typ) + formatComment(row[7], prefix, suffix) + "\n" + name + isFirst + "\n")
 		*names = append(*names, row[0], row[1])
-
 		n++
 	}
-	err = s.Err()
-	if err != nil {
+	if err := s.Err(); err != nil {
 		return nil, err
 	}
-
 	f := new(bytes.Buffer)
 	f.WriteString(hdr)
-
 	// add consts
 	typs := []string{"Bool", "Num", "String"}
 	for i, b := range []*bytes.Buffer{bools, nums, strs} {
@@ -249,14 +217,12 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 		b.WriteTo(f)
 		f.WriteString(")\n\n")
 	}
-
 	// add counts
 	f.WriteString("const (\n")
 	f.WriteString(fmt.Sprintf("// CapCountBool is the count of bool capabilities.\nCapCountBool = %s+1\n\n", lastBool))
 	f.WriteString(fmt.Sprintf("// CapCountNum is the count of num capabilities.\nCapCountNum = %s+1\n\n", lastNum))
 	f.WriteString(fmt.Sprintf("// CapCountString is the count of string capabilities.\nCapCountString = %s+1\n", lastString))
 	f.WriteString(")\n\n")
-
 	// add names
 	z := []string{"bool", "num", "string"}
 	for n, s := range [][]string{boolNames, numNames, stringNames} {
@@ -268,7 +234,6 @@ func processCaps(capsBuf []byte) ([]byte, error) {
 		}
 		f.WriteString("}\n")
 	}
-
 	return f.Bytes(), nil
 }
 
@@ -277,14 +242,9 @@ func formatComment(s, prefix, suffix string) string {
 	s = strings.TrimPrefix(s, prefix)
 	s = strings.TrimSuffix(s, ".")
 	s = strings.TrimSuffix(s, suffix)
-
 	return strings.TrimSpace(prefix+" "+s+" "+suffix) + "."
 }
 
-const (
-	hdr = `package terminfo
-
+const hdr = `package terminfo
 	// Code generated by gen.go. DO NOT EDIT.
-
 `
-)
